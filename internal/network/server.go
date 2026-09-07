@@ -8,10 +8,17 @@ import (
 
 type Server struct {
 	Listener net.Listener
+	Router   *Router
 }
 
 func NewServer() *Server {
-	return &Server{}
+	return &Server{
+		Router: NewRouter(),
+	}
+}
+
+func (s *Server) RegisterHandler(msgID uint16, handler HandlerFunc) {
+	s.Router.Register(msgID, handler)
 }
 
 func (s *Server) Start() {
@@ -33,18 +40,21 @@ func (s *Server) Start() {
 	}
 }
 
-func (s *Server) handleConnection(conn net.Conn) {
+func (s *Server) handleConnection(rawConn net.Conn) {
+	conn := NewConn(rawConn)
 	defer conn.Close()
+
 	log.Printf("New connection from: %s", conn.RemoteAddr().String())
 
-	// TODO: 这里应该放入一个读取循环，解析协议包并分发到游戏逻辑
-	buf := make([]byte, 1024)
 	for {
-		n, err := conn.Read(buf)
+		pkt, err := conn.ReadPacket()
 		if err != nil {
-			log.Printf("Connection %s closed or error: %v", conn.RemoteAddr().String(), err)
+			log.Printf("Connection %s closed or error: %v",
+				conn.RemoteAddr().String(), err)
 			return
 		}
-		log.Printf("Received from %s: %s", conn.RemoteAddr().String(), string(buf[:n]))
+		log.Printf("Received from %s: %s", conn.RemoteAddr().String(), pkt.String())
+
+		s.Router.Handle(conn, pkt)
 	}
 }

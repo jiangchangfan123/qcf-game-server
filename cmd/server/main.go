@@ -2,6 +2,7 @@ package main
 
 import (
 	"GameServer/internal/config"
+	"GameServer/internal/game"
 	"GameServer/internal/network"
 	"GameServer/pkg/logger"
 	"flag"
@@ -23,5 +24,8 @@ func main() {
 	logger.Log.Infof("Config loaded, server port: %s", config.C.Port)
 
 	netServer := network.NewServer()
+
+	// 注册所有游戏消息处理函数
+	game.RegisterHandlers(netServer.Router)
 	netServer.Start() // 此方法会阻塞，持续监听
 }
