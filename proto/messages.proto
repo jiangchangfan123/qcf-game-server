@@ -1,0 +1,26 @@
+syntax = "proto3";
+package pb;
+option go_package = "GameServer/internal/pb";
+
+//心跳体
+message Heartbeat{}
+
+//登录请求
+message LoginRequest{
+    string username = 1;
+    string password = 2;
+}
+
+//登录响应
+message LoginResponse{
+    int32 code = 1; // 0=成功, 其它=失败
+    string msg = 2;
+    int64 uid = 3; // 成功时返回玩家ID
+}
+
+// 聊天消息
+message ChatMessage {
+  int64  room_id  = 1;
+  string content  = 2;
+  string nickname = 3;
+}
