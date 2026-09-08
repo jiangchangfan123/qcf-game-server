@@ -4,21 +4,38 @@ import (
 	"bufio"
 	"net"
 	"sync"
+	"sync/atomic"
 )
 
+// 全局连接ID生成器
+var connIDGen uint64
+
 type Conn struct {
+	ID        uint64 //连接唯一id
 	RawConn   net.Conn
 	reader    *bufio.Reader
 	writer    *bufio.Writer
 	writeLock sync.Mutex
+	session   interface{}
 }
 
 func NewConn(raw net.Conn) *Conn {
 	return &Conn{
+		ID:      atomic.AddUint64(&connIDGen, 1),
 		RawConn: raw,
 		reader:  bufio.NewReader(raw),
 		writer:  bufio.NewWriter(raw),
 	}
+}
+
+// SetSession 绑定会话（登录成功后调用）
+func (c *Conn) SetSession(s interface{}) {
+	c.session = s
+}
+
+// GetSession 获取会话
+func (c *Conn) GetSession() interface{} {
+	return c.session
 }
 
 // ReadPacket 从连接中读取一个完整数据包

@@ -25,7 +25,7 @@ func main() {
 
 	netServer := network.NewServer()
 
-	// 注册所有游戏消息处理函数
-	game.RegisterHandlers(netServer.Router)
+	// 注册所有游戏消息处理函数，传入 SessionManager
+	game.RegisterHandlers(netServer.Router, netServer.SessionManager)
 	netServer.Start() // 此方法会阻塞，持续监听
 }

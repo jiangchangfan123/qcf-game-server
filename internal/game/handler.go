@@ -3,7 +3,9 @@ package game
 import (
 	"GameServer/internal/network"
 	"GameServer/internal/pb"
+	"GameServer/internal/session"
 	"log"
+	"time"
 
 	"google.golang.org/protobuf/proto"
 )
@@ -16,52 +18,79 @@ const (
 )
 
 // RegisterHandlers 将所有游戏消息处理函数注册到路由上
-func RegisterHandlers(router *network.Router) {
-	router.Register(MsgIDHeartbeat, HandleHeartbeat)
-	router.Register(MsgIDLogin, HandleLogin)
-	router.Register(MsgIDChat, HandleChat)
+func RegisterHandlers(router *network.Router, sm *session.SessionManager) {
+	router.Register(MsgIDHeartbeat, HandleHeartbeat(sm))
+	router.Register(MsgIDLogin, HandleLogin(sm))
+	router.Register(MsgIDChat, HandleChat(sm))
 }
 
 // HandleHeartbeat 处理心跳包 —— 客户端定期发来证明还活着
-func HandleHeartbeat(conn *network.Conn, pkt *network.Packet) {
-	log.Printf("收到心跳 from %s", conn.RemoteAddr().String())
-	// 回一个心跳包给客户端，表示服务器还在
-	_ = conn.WritePacket(&network.Packet{MsgID: MsgIDHeartbeat, Data: nil})
+func HandleHeartbeat(sm *session.SessionManager) network.HandlerFunc {
+	return func(conn *network.Conn, pkt *network.Packet) {
+		log.Printf("收到心跳 from %s", conn.RemoteAddr().String())
+		_ = conn.WritePacket(&network.Packet{MsgID: MsgIDHeartbeat, Data: nil})
+	}
 }
 
-// HandleLogin 处理登录请求（暂时简单回显）
-func HandleLogin(conn *network.Conn, pkt *network.Packet) {
-	//反序列化
-	req := &pb.LoginRequest{}
-	if err := proto.Unmarshal(pkt.Data, req); err != nil {
-		log.Printf("登录反序列化失败: %v", err)
-		return
-	}
+func HandleLogin(sm *session.SessionManager) network.HandlerFunc {
+	return func(conn *network.Conn, pkt *network.Packet) {
+		//反序列化
+		req := &pb.LoginRequest{}
+		if err := proto.Unmarshal(pkt.Data, req); err != nil {
+			log.Printf("登录反序列化失败: %v", err)
+			return
+		}
+		log.Printf("收到登录请求 from %s, 用户名: %s",
+			conn.RemoteAddr().String(), req.Username)
 
-	log.Printf("收到登录请求 from %s, data: %s",
-		conn.RemoteAddr().String(), string(pkt.Data))
-	// 2. 业务逻辑（TODO: 查数据库校验密码）
-	resp := &pb.LoginResponse{
-		Code: 0,
-		Msg:  "login success",
-		Uid:  10001,
-	}
+		// 2. 业务逻辑（TODO: 查数据库校验密码）
+		uid := int64(10001)
+		resp := &pb.LoginResponse{
+			Code: 0,
+			Msg:  "login success",
+			Uid:  uid,
+		}
 
-	data, _ := proto.Marshal(resp)
-	_ = conn.WritePacket(&network.Packet{MsgID: MsgIDLogin, Data: data})
+		//3. 创建Session并绑定到连接
+		s := &session.Session{
+			ConnID:    conn.ID,
+			UID:       uid,
+			Nickname:  req.Username,
+			LoginTime: time.Now(),
+		}
+
+		sm.Add(s)
+		conn.SetSession(s)
+		log.Printf("玩家 %s 登录成功, 在线人数: %d", req.Username, sm.OnlineCount())
+
+		//回复客户端
+		data, _ := proto.Marshal(resp)
+		_ = conn.WritePacket(&network.Packet{MsgID: MsgIDLogin, Data: data})
+	}
 }
 
 // HandleChat 处理聊天消息（暂时简单回显）
-func HandleChat(conn *network.Conn, pkt *network.Packet) {
-	msg := &pb.ChatMessage{}
-	if err := proto.Unmarshal(pkt.Data, msg); err != nil {
-		log.Printf("聊天反序列化失败: %v", err)
-		return
-	}
+func HandleChat(sm *session.SessionManager) network.HandlerFunc {
+	return func(conn *network.Conn, pkt *network.Packet) {
+		msg := &pb.ChatMessage{}
+		if err := proto.Unmarshal(pkt.Data, msg); err != nil {
+			log.Printf("聊天反序列化失败: %v", err)
+			return
+		}
 
-	log.Printf("收到聊天 from %s: %s",
-		conn.RemoteAddr().String(), string(pkt.Data))
-	// TODO: 广播给房间内其他人
-	respData, _ := proto.Marshal(msg)
-	_ = conn.WritePacket(&network.Packet{MsgID: MsgIDChat, Data: respData})
+		// 通过 Session 获取玩家昵称
+		s := conn.GetSession()
+		if s == nil {
+			log.Printf("未登录玩家发来聊天消息, 拒绝")
+			return
+		}
+		player := s.(*session.Session)
+		msg.Nickname = player.Nickname // 强制用服务端的昵称，防止客户端伪造
+
+		log.Printf("收到聊天 from [%s]: %s", player.Nickname, msg.Content)
+
+		// TODO: 广播给房间内其他人
+		respData, _ := proto.Marshal(msg)
+		_ = conn.WritePacket(&network.Packet{MsgID: MsgIDChat, Data: respData})
+	}
 }

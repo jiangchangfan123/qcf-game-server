@@ -2,18 +2,21 @@ package network
 
 import (
 	"GameServer/internal/config"
+	"GameServer/internal/session"
 	"log"
 	"net"
 )
 
 type Server struct {
-	Listener net.Listener
-	Router   *Router
+	Listener       net.Listener
+	Router         *Router
+	SessionManager *session.SessionManager
 }
 
 func NewServer() *Server {
 	return &Server{
-		Router: NewRouter(),
+		Router:         NewRouter(),
+		SessionManager: session.NewSessionManager(),
 	}
 }
 
@@ -42,7 +45,13 @@ func (s *Server) Start() {
 
 func (s *Server) handleConnection(rawConn net.Conn) {
 	conn := NewConn(rawConn)
-	defer conn.Close()
+	defer func() {
+		//连接断开时，清理session
+		s.SessionManager.Remove(conn.ID)
+		log.Printf("Connection closed: %s, online: %d",
+			conn.RemoteAddr().String(), s.SessionManager.OnlineCount())
+		conn.Close()
+	}()
 
 	log.Printf("New connection from: %s", conn.RemoteAddr().String())
 
