@@ -10,6 +10,7 @@ type Session struct {
 	UID       int64
 	Nickname  string
 	LoginTime time.Time
+	RoomID    int64
 }
 
 type SessionManager struct {
@@ -51,11 +52,30 @@ func (m *SessionManager) OnlineCount() int {
 	return len(m.sessions)
 }
 
-// Broadcast 向所有在线玩家广播消息（后续房间系统可替换为房间内广播）
-func (m *SessionManager) Broadcast(msgID uint16, data []byte) {
+// 放回某个房间里所有玩家的connid（排除指定玩家）
+func (m *SessionManager) GetRoomConnIDs(roomID int64, excludeUID int64) []uint64 {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	// 遍历所有会话，逐个发送
-	// 注意：这里调用者需要传入 conn 的写方法，或者后续用接口解耦
-	// 暂时留空，等房间系统时再完善
+
+	var ids []uint64
+	for _, s := range m.sessions {
+		if s.RoomID == roomID && s.UID != excludeUID {
+			ids = append(ids, s.ConnID)
+		}
+	}
+	return ids
+}
+
+// RoomOnlineCount 返回房间在线人数
+func (m *SessionManager) RoomOnlineCount(roomID int64) int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	count := 0
+	for _, s := range m.sessions {
+		if s.RoomID == roomID {
+			count++
+		}
+	}
+	return count
 }

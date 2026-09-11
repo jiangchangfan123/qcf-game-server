@@ -17,13 +17,18 @@ const (
 	MsgIDHeartbeat = 1 // 心跳包
 	MsgIDLogin     = 2 // 登录请求
 	MsgIDChat      = 3 // 聊天消息
+	MsgIDJoinRoom  = 4 //加入房间
+	MsgIDLeaveRoom = 5 //离开房间
+	MsgIDSysNotify = 6 //系统通知
 )
 
 // RegisterHandlers 将所有游戏消息处理函数注册到路由上
-func RegisterHandlers(router *network.Router, sm *session.SessionManager) {
+func RegisterHandlers(router *network.Router, sm *session.SessionManager, srv *network.Server) {
 	router.Register(MsgIDHeartbeat, HandleHeartbeat(sm))
 	router.Register(MsgIDLogin, HandleLogin(sm))
-	router.Register(MsgIDChat, HandleChat(sm))
+	router.Register(MsgIDChat, HandleChat(sm, srv))
+	router.Register(MsgIDJoinRoom, HandleJoinRoom(sm, srv))
+	router.Register(MsgIDLeaveRoom, HandleLeaveRoom(sm, srv))
 }
 
 // HandleHeartbeat 处理心跳包 —— 客户端定期发来证明还活着
@@ -79,6 +84,7 @@ func HandleLogin(sm *session.SessionManager) network.HandlerFunc {
 			UID:       user.ID,
 			Nickname:  user.Nickname,
 			LoginTime: time.Now(),
+			RoomID:    1, // 默认进入1号房间
 		}
 
 		sm.Add(s)
@@ -91,7 +97,7 @@ func HandleLogin(sm *session.SessionManager) network.HandlerFunc {
 }
 
 // HandleChat 处理聊天消息（暂时简单回显）
-func HandleChat(sm *session.SessionManager) network.HandlerFunc {
+func HandleChat(sm *session.SessionManager, srv *network.Server) network.HandlerFunc {
 	return func(conn *network.Conn, pkt *network.Packet) {
 		msg := &pb.ChatMessage{}
 		if err := proto.Unmarshal(pkt.Data, msg); err != nil {
@@ -111,6 +117,125 @@ func HandleChat(sm *session.SessionManager) network.HandlerFunc {
 		log.Printf("收到聊天 from [%s]: %s", player.Nickname, msg.Content)
 
 		// TODO: 广播给房间内其他人
-		conn.WriteProtoPacket(MsgIDLogin, msg)
+		targetIDs := sm.GetRoomConnIDs(player.RoomID, player.UID)
+
+		for _, connID := range targetIDs {
+			if targetConn, ok := srv.GetConn(connID); ok {
+				targetConn.WriteProtoPacket(MsgIDChat, msg)
+			}
+		}
+	}
+}
+
+// HandleJoinRoom 玩家加入/切换房间
+func HandleJoinRoom(sm *session.SessionManager, srv *network.Server) network.HandlerFunc {
+	return func(conn *network.Conn, pkt *network.Packet) {
+		req := &pb.JoinRoomRequest{}
+		if err := proto.Unmarshal(pkt.Data, req); err != nil {
+			log.Printf("加入房间反序列化失败: %v", err)
+			return
+		}
+
+		s := conn.GetSession()
+		if s == nil {
+			conn.WriteProtoPacket(MsgIDJoinRoom, &pb.JoinRoomResponse{
+				Code: 1, Msg: "未登录",
+			})
+			return
+		}
+		player := s.(*session.Session)
+
+		// 不能加入 room_id <= 0 的房间
+		if req.RoomId <= 0 {
+			conn.WriteProtoPacket(MsgIDJoinRoom, &pb.JoinRoomResponse{
+				Code: 2, Msg: "无效的房间ID",
+			})
+			return
+		}
+
+		oldRoomID := player.RoomID
+		newRoomID := req.RoomId
+
+		// 如果已经在同一个房间，直接返回
+		if oldRoomID == newRoomID {
+			conn.WriteProtoPacket(MsgIDJoinRoom, &pb.JoinRoomResponse{
+				Code: 0, Msg: "已在该房间", RoomId: newRoomID,
+				Online: int32(sm.RoomOnlineCount(newRoomID)),
+			})
+			return
+		}
+
+		// 切换房间
+		player.RoomID = newRoomID
+
+		log.Printf("玩家 %s 从房间[%d]切换到房间[%d]", player.Nickname, oldRoomID, newRoomID)
+
+		// 通知旧房间：xxx 离开了
+		notifyLeave(sm, srv, oldRoomID, player.Nickname)
+
+		// 通知新房间：xxx 加入了
+		notifyJoin(sm, srv, newRoomID, player.Nickname)
+
+		// 回复加入者
+		conn.WriteProtoPacket(MsgIDJoinRoom, &pb.JoinRoomResponse{
+			Code: 0, Msg: "加入成功", RoomId: newRoomID,
+			Online: int32(sm.RoomOnlineCount(newRoomID)),
+		})
+	}
+}
+
+// HandleLeaveRoom 玩家离开当前房间（回到大厅，RoomID 设为 0）
+func HandleLeaveRoom(sm *session.SessionManager, srv *network.Server) network.HandlerFunc {
+	return func(conn *network.Conn, pkt *network.Packet) {
+		s := conn.GetSession()
+		if s == nil {
+			conn.WriteProtoPacket(MsgIDLeaveRoom, &pb.LeaveRoomResponse{
+				Code: 1, Msg: "未登录",
+			})
+			return
+		}
+		player := s.(*session.Session)
+
+		if player.RoomID == 0 {
+			conn.WriteProtoPacket(MsgIDLeaveRoom, &pb.LeaveRoomResponse{
+				Code: 0, Msg: "你不在任何房间",
+			})
+			return
+		}
+
+		oldRoomID := player.RoomID
+		player.RoomID = 0 // 回到大厅
+
+		log.Printf("玩家 %s 离开了房间[%d]", player.Nickname, oldRoomID)
+
+		// 通知房间内其他人
+		notifyLeave(sm, srv, oldRoomID, player.Nickname)
+
+		// 回复玩家
+		conn.WriteProtoPacket(MsgIDLeaveRoom, &pb.LeaveRoomResponse{
+			Code: 0, Msg: "离开成功",
+		})
+	}
+}
+
+// ===== 辅助函数：发送系统通知 =====
+
+func notifyJoin(sm *session.SessionManager, srv *network.Server, roomID int64, nickname string) {
+	notify := &pb.SystemNotify{Content: nickname + " 加入了房间"}
+	targetIDs := sm.GetRoomConnIDs(roomID, -1) // -1 = 不排除任何人
+	for _, connID := range targetIDs {
+		if targetConn, ok := srv.GetConn(connID); ok {
+			targetConn.WriteProtoPacket(MsgIDSysNotify, notify)
+		}
+	}
+}
+
+func notifyLeave(sm *session.SessionManager, srv *network.Server, roomID int64, nickname string) {
+	notify := &pb.SystemNotify{Content: nickname + " 离开了房间"}
+	targetIDs := sm.GetRoomConnIDs(roomID, -1)
+	for _, connID := range targetIDs {
+		if targetConn, ok := srv.GetConn(connID); ok {
+			targetConn.WriteProtoPacket(MsgIDSysNotify, notify)
+		}
 	}
 }

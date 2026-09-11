@@ -33,6 +33,6 @@ func main() {
 	netServer := network.NewServer()
 
 	// 注册所有游戏消息处理函数，传入 SessionManager
-	game.RegisterHandlers(netServer.Router, netServer.SessionManager)
+	game.RegisterHandlers(netServer.Router, netServer.SessionManager, netServer)
 	netServer.Start() // 此方法会阻塞，持续监听
 }

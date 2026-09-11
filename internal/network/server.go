@@ -5,18 +5,22 @@ import (
 	"GameServer/internal/session"
 	"log"
 	"net"
+	"sync"
 )
 
 type Server struct {
 	Listener       net.Listener
 	Router         *Router
 	SessionManager *session.SessionManager
+	connMap        map[uint64]*Conn
+	connMu         sync.RWMutex
 }
 
 func NewServer() *Server {
 	return &Server{
 		Router:         NewRouter(),
 		SessionManager: session.NewSessionManager(),
+		connMap:        make(map[uint64]*Conn),
 	}
 }
 
@@ -45,7 +49,18 @@ func (s *Server) Start() {
 
 func (s *Server) handleConnection(rawConn net.Conn) {
 	conn := NewConn(rawConn)
+
+	//加入连接表
+	s.connMu.Lock()
+	s.connMap[conn.ID] = conn
+	s.connMu.Unlock()
+
 	defer func() {
+		//从连接表中移除
+		s.connMu.Lock()
+		delete(s.connMap, conn.ID)
+		s.connMu.Unlock()
+
 		//连接断开时，清理session
 		s.SessionManager.Remove(conn.ID)
 		log.Printf("Connection closed: %s, online: %d",
@@ -66,4 +81,11 @@ func (s *Server) handleConnection(rawConn net.Conn) {
 
 		s.Router.Handle(conn, pkt)
 	}
+}
+
+func (s *Server) GetConn(id uint64) (*Conn, bool) {
+	s.connMu.RLock()
+	defer s.connMu.RUnlock()
+	c, ok := s.connMap[id]
+	return c, ok
 }

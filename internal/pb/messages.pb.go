@@ -233,6 +233,250 @@ func (x *ChatMessage) GetNickname() string {
 	return ""
 }
 
+type JoinRoomRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RoomId        int64                  `protobuf:"varint,1,opt,name=room_id,json=roomId,proto3" json:"room_id,omitempty"` //目标房间ID
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *JoinRoomRequest) Reset() {
+	*x = JoinRoomRequest{}
+	mi := &file_proto_messages_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *JoinRoomRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JoinRoomRequest) ProtoMessage() {}
+
+func (x *JoinRoomRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_messages_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JoinRoomRequest.ProtoReflect.Descriptor instead.
+func (*JoinRoomRequest) Descriptor() ([]byte, []int) {
+	return file_proto_messages_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *JoinRoomRequest) GetRoomId() int64 {
+	if x != nil {
+		return x.RoomId
+	}
+	return 0
+}
+
+type JoinRoomResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"` //0=成功
+	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	RoomId        int64                  `protobuf:"varint,3,opt,name=room_id,json=roomId,proto3" json:"room_id,omitempty"` //实际加入的房间ID
+	Online        int32                  `protobuf:"varint,4,opt,name=online,proto3" json:"online,omitempty"`               //房间内当前人数
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *JoinRoomResponse) Reset() {
+	*x = JoinRoomResponse{}
+	mi := &file_proto_messages_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *JoinRoomResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JoinRoomResponse) ProtoMessage() {}
+
+func (x *JoinRoomResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_messages_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JoinRoomResponse.ProtoReflect.Descriptor instead.
+func (*JoinRoomResponse) Descriptor() ([]byte, []int) {
+	return file_proto_messages_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *JoinRoomResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *JoinRoomResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+func (x *JoinRoomResponse) GetRoomId() int64 {
+	if x != nil {
+		return x.RoomId
+	}
+	return 0
+}
+
+func (x *JoinRoomResponse) GetOnline() int32 {
+	if x != nil {
+		return x.Online
+	}
+	return 0
+}
+
+type LeaveRoomRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LeaveRoomRequest) Reset() {
+	*x = LeaveRoomRequest{}
+	mi := &file_proto_messages_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LeaveRoomRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LeaveRoomRequest) ProtoMessage() {}
+
+func (x *LeaveRoomRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_messages_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LeaveRoomRequest.ProtoReflect.Descriptor instead.
+func (*LeaveRoomRequest) Descriptor() ([]byte, []int) {
+	return file_proto_messages_proto_rawDescGZIP(), []int{6}
+}
+
+type LeaveRoomResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LeaveRoomResponse) Reset() {
+	*x = LeaveRoomResponse{}
+	mi := &file_proto_messages_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LeaveRoomResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LeaveRoomResponse) ProtoMessage() {}
+
+func (x *LeaveRoomResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_messages_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LeaveRoomResponse.ProtoReflect.Descriptor instead.
+func (*LeaveRoomResponse) Descriptor() ([]byte, []int) {
+	return file_proto_messages_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *LeaveRoomResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *LeaveRoomResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+type SystemNotify struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Content       string                 `protobuf:"bytes,1,opt,name=content,proto3" json:"content,omitempty"` //通知内容
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SystemNotify) Reset() {
+	*x = SystemNotify{}
+	mi := &file_proto_messages_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SystemNotify) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SystemNotify) ProtoMessage() {}
+
+func (x *SystemNotify) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_messages_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SystemNotify.ProtoReflect.Descriptor instead.
+func (*SystemNotify) Descriptor() ([]byte, []int) {
+	return file_proto_messages_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *SystemNotify) GetContent() string {
+	if x != nil {
+		return x.Content
+	}
+	return ""
+}
+
 var File_proto_messages_proto protoreflect.FileDescriptor
 
 const file_proto_messages_proto_rawDesc = "" +
@@ -249,7 +493,20 @@ const file_proto_messages_proto_rawDesc = "" +
 	"\vChatMessage\x12\x17\n" +
 	"\aroom_id\x18\x01 \x01(\x03R\x06roomId\x12\x18\n" +
 	"\acontent\x18\x02 \x01(\tR\acontent\x12\x1a\n" +
-	"\bnickname\x18\x03 \x01(\tR\bnicknameB\x18Z\x16GameServer/internal/pbb\x06proto3"
+	"\bnickname\x18\x03 \x01(\tR\bnickname\"*\n" +
+	"\x0fJoinRoomRequest\x12\x17\n" +
+	"\aroom_id\x18\x01 \x01(\x03R\x06roomId\"i\n" +
+	"\x10JoinRoomResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x17\n" +
+	"\aroom_id\x18\x03 \x01(\x03R\x06roomId\x12\x16\n" +
+	"\x06online\x18\x04 \x01(\x05R\x06online\"\x12\n" +
+	"\x10LeaveRoomRequest\"9\n" +
+	"\x11LeaveRoomResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\"(\n" +
+	"\fSystemNotify\x12\x18\n" +
+	"\acontent\x18\x01 \x01(\tR\acontentB\x0fZ\r./internal/pbb\x06proto3"
 
 var (
 	file_proto_messages_proto_rawDescOnce sync.Once
@@ -263,12 +520,17 @@ func file_proto_messages_proto_rawDescGZIP() []byte {
 	return file_proto_messages_proto_rawDescData
 }
 
-var file_proto_messages_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_proto_messages_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_proto_messages_proto_goTypes = []any{
-	(*Heartbeat)(nil),     // 0: pb.Heartbeat
-	(*LoginRequest)(nil),  // 1: pb.LoginRequest
-	(*LoginResponse)(nil), // 2: pb.LoginResponse
-	(*ChatMessage)(nil),   // 3: pb.ChatMessage
+	(*Heartbeat)(nil),         // 0: pb.Heartbeat
+	(*LoginRequest)(nil),      // 1: pb.LoginRequest
+	(*LoginResponse)(nil),     // 2: pb.LoginResponse
+	(*ChatMessage)(nil),       // 3: pb.ChatMessage
+	(*JoinRoomRequest)(nil),   // 4: pb.JoinRoomRequest
+	(*JoinRoomResponse)(nil),  // 5: pb.JoinRoomResponse
+	(*LeaveRoomRequest)(nil),  // 6: pb.LeaveRoomRequest
+	(*LeaveRoomResponse)(nil), // 7: pb.LeaveRoomResponse
+	(*SystemNotify)(nil),      // 8: pb.SystemNotify
 }
 var file_proto_messages_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
@@ -289,7 +551,7 @@ func file_proto_messages_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_messages_proto_rawDesc), len(file_proto_messages_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
