@@ -2,6 +2,7 @@ package main
 
 import (
 	"GameServer/internal/config"
+	"GameServer/internal/db"
 	"GameServer/internal/game"
 	"GameServer/internal/network"
 	"GameServer/pkg/logger"
@@ -22,6 +23,12 @@ func main() {
 		logger.Log.Fatalf("Failed to load config: %v", err)
 	}
 	logger.Log.Infof("Config loaded, server port: %s", config.C.Port)
+
+	//初始化数据库
+	if err := db.Init(); err != nil {
+		logger.Log.Fatalf("Failed to connect to database: %v", err)
+	}
+	defer db.Close()
 
 	netServer := network.NewServer()
 

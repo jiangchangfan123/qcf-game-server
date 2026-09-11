@@ -1,10 +1,13 @@
 package network
 
 import (
+	"GameServer/pkg/logger"
 	"bufio"
 	"net"
 	"sync"
 	"sync/atomic"
+
+	"google.golang.org/protobuf/proto"
 )
 
 // 全局连接ID生成器
@@ -53,6 +56,17 @@ func (c *Conn) WritePacket(pkt *Packet) error {
 
 	//将缓冲区的数据真正刷到网络上
 	return c.writer.Flush()
+}
+
+func (c *Conn) WriteProtoPacket(msgID uint16, msg proto.Message) {
+	data, err := proto.Marshal(msg)
+	if err != nil {
+		logger.Log.Errorf("序列化消息失败 msgID=%d: %v", msgID, err)
+		return
+	}
+	if err := c.WritePacket(&Packet{MsgID: msgID, Data: data}); err != nil {
+		logger.Log.Errorf("发送数据失败 conn=%d msgID=%d: %v", c.ID, msgID, err)
+	}
 }
 
 func (c *Conn) Close() error {

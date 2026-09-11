@@ -1,1 +1,10 @@
 port: ":8080"
+
+database:
+  host: "localhost"
+  port: 3306
+  user: "jcf"
+  password: "jcf310978155"
+  dbname: "game_server"
+  max_open_conns: 10
+  max_idle_conns: 5
