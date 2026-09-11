@@ -6,6 +6,7 @@ import (
 	"net"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"google.golang.org/protobuf/proto"
 )
@@ -14,20 +15,22 @@ import (
 var connIDGen uint64
 
 type Conn struct {
-	ID        uint64 //连接唯一id
-	RawConn   net.Conn
-	reader    *bufio.Reader
-	writer    *bufio.Writer
-	writeLock sync.Mutex
-	session   interface{}
+	ID            uint64 //连接唯一id
+	RawConn       net.Conn
+	reader        *bufio.Reader
+	writer        *bufio.Writer
+	writeLock     sync.Mutex
+	session       interface{}
+	LastHeartbeat time.Time
 }
 
 func NewConn(raw net.Conn) *Conn {
 	return &Conn{
-		ID:      atomic.AddUint64(&connIDGen, 1),
-		RawConn: raw,
-		reader:  bufio.NewReader(raw),
-		writer:  bufio.NewWriter(raw),
+		ID:            atomic.AddUint64(&connIDGen, 1),
+		RawConn:       raw,
+		reader:        bufio.NewReader(raw),
+		writer:        bufio.NewWriter(raw),
+		LastHeartbeat: time.Now(),
 	}
 }
 
@@ -76,4 +79,9 @@ func (c *Conn) Close() error {
 // RemoteAddr 返回远程地址（用于日志）
 func (c *Conn) RemoteAddr() net.Addr {
 	return c.RawConn.RemoteAddr()
+}
+
+// UpdateHeartbeat 收到心跳时调用，更新最后心跳时间
+func (c *Conn) UpdateHeartbeat() {
+	c.LastHeartbeat = time.Now()
 }

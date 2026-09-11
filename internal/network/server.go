@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"sync"
+	"time"
 )
 
 type Server struct {
@@ -55,6 +56,9 @@ func (s *Server) handleConnection(rawConn net.Conn) {
 	s.connMap[conn.ID] = conn
 	s.connMu.Unlock()
 
+	//启动心跳检测
+	go s.heartbeatChecker(conn)
+
 	defer func() {
 		//从连接表中移除
 		s.connMu.Lock()
@@ -88,4 +92,19 @@ func (s *Server) GetConn(id uint64) (*Conn, bool) {
 	defer s.connMu.RUnlock()
 	c, ok := s.connMap[id]
 	return c, ok
+}
+
+func (s *Server) heartbeatChecker(conn *Conn) {
+	timeout := time.Duration(config.C.Heartbeat.Timeout) * time.Second
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		if time.Since(conn.LastHeartbeat) > timeout {
+			log.Printf("心跳超时, 强制断开连接: %s (conn=%d)",
+				conn.RemoteAddr().String(), conn.ID)
+			conn.Close() // 关闭连接，会触发 readPacket 返回 error，handleConnection 的 defer 清理 session
+			return
+		}
+	}
 }

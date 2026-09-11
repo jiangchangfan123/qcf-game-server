@@ -7,8 +7,13 @@ import (
 )
 
 type ServerConfig struct {
-	Port     string         `yaml:"port"`
-	Database DatabaseConfig `yaml:"database"`
+	Port      string          `yaml:"port"`
+	Heartbeat HeartbeatConfig `yaml:"heartbeat"`
+	Database  DatabaseConfig  `yaml:"database"`
+}
+
+type HeartbeatConfig struct {
+	Timeout int `yaml:"timeout"` // 心跳超时时间（秒）
 }
 
 type DatabaseConfig struct {
@@ -28,6 +33,12 @@ func Init(path string) error {
 	if err != nil {
 		return err
 	}
-
-	return yaml.Unmarshal(data, &C)
+	if err := yaml.Unmarshal(data, &C); err != nil {
+		return err
+	}
+	// 默认超时30秒
+	if C.Heartbeat.Timeout <= 0 {
+		C.Heartbeat.Timeout = 30
+	}
+	return nil
 }

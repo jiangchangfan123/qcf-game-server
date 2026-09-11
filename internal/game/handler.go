@@ -35,6 +35,7 @@ func RegisterHandlers(router *network.Router, sm *session.SessionManager, srv *n
 func HandleHeartbeat(sm *session.SessionManager) network.HandlerFunc {
 	return func(conn *network.Conn, pkt *network.Packet) {
 		log.Printf("收到心跳 from %s", conn.RemoteAddr().String())
+		conn.UpdateHeartbeat() //更新最后心跳时间
 		conn.WriteProtoPacket(MsgIDHeartbeat, &pb.Heartbeat{})
 	}
 }
