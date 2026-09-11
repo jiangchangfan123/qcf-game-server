@@ -7,6 +7,9 @@ import (
 	"GameServer/internal/network"
 	"GameServer/pkg/logger"
 	"flag"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 func main() {
@@ -35,4 +38,16 @@ func main() {
 	// 注册所有游戏消息处理函数，传入 SessionManager
 	game.RegisterHandlers(netServer.Router, netServer.SessionManager, netServer)
 	netServer.Start() // 此方法会阻塞，持续监听
+
+	// 监听系统信号
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM) //当crtl+c或者是服务线程被kill时，往quit通道发信号
+
+	// 阻塞等待信号
+	sig := <-quit
+	logger.Log.Infof("收到信号: %v, 开始优雅关闭...", sig)
+
+	// 优雅关闭
+	netServer.Shutdown()
+	logger.Log.Info("服务器已退出")
 }
