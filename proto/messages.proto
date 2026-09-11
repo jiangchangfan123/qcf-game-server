@@ -49,3 +49,14 @@ message LeaveRoomResponse {
 message SystemNotify {
     string content = 1; //通知内容
 }
+
+message RegisterRequest {
+    string username = 1;
+    string password = 2;
+    string nickname = 3;
+}
+
+message RegisterResponse {
+    int32 code = 1;
+    string msg = 2;
+}

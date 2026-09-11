@@ -20,6 +20,7 @@ const (
 	MsgIDJoinRoom  = 4 //加入房间
 	MsgIDLeaveRoom = 5 //离开房间
 	MsgIDSysNotify = 6 //系统通知
+	MsgIDRegister  = 7 //注册请求
 )
 
 // RegisterHandlers 将所有游戏消息处理函数注册到路由上
@@ -29,6 +30,7 @@ func RegisterHandlers(router *network.Router, sm *session.SessionManager, srv *n
 	router.Register(MsgIDChat, HandleChat(sm, srv))
 	router.Register(MsgIDJoinRoom, HandleJoinRoom(sm, srv))
 	router.Register(MsgIDLeaveRoom, HandleLeaveRoom(sm, srv))
+	router.Register(MsgIDRegister, HandleRegister())
 }
 
 // HandleHeartbeat 处理心跳包 —— 客户端定期发来证明还活着
@@ -215,6 +217,67 @@ func HandleLeaveRoom(sm *session.SessionManager, srv *network.Server) network.Ha
 		// 回复玩家
 		conn.WriteProtoPacket(MsgIDLeaveRoom, &pb.LeaveRoomResponse{
 			Code: 0, Msg: "离开成功",
+		})
+	}
+}
+
+func HandleRegister() network.HandlerFunc {
+	return func(conn *network.Conn, pkt *network.Packet) {
+		req := &pb.RegisterRequest{}
+		if err := proto.Unmarshal(pkt.Data, req); err != nil {
+			logger.Log.Errorf("注册反序列化失败: %v", err)
+			conn.WriteProtoPacket(MsgIDRegister, &pb.RegisterResponse{
+				Code: 500, Msg: "服务器内部出错",
+			})
+		}
+
+		//参数校验
+		if req.Username == "" || req.Password == "" {
+			conn.WriteProtoPacket(MsgIDRegister, &pb.RegisterResponse{
+				Code: 2, Msg: "用户名或密码不能为空",
+			})
+			return
+		}
+
+		//检查用户名是否已存在
+		exists, err := models.ExistByUsername(req.Username)
+		if err != nil {
+			logger.Log.Errorf("查询用户出错: %v", err)
+			conn.WriteProtoPacket(MsgIDRegister, &pb.RegisterResponse{
+				Code: 500, Msg: "服务器内部错误",
+			})
+			return
+		}
+		if exists {
+			conn.WriteProtoPacket(MsgIDRegister, &pb.RegisterResponse{
+				Code: 1, Msg: "用户名已存在",
+			})
+			return
+		}
+
+		//创建用户
+		nickname := req.Nickname
+		if nickname == "" {
+			nickname = req.Username
+		}
+
+		user := &models.User{
+			Username: req.Username,
+			Password: req.Password,
+			Nickname: nickname,
+		}
+
+		if err = user.CreateUser(); err != nil {
+			logger.Log.Errorf("创建用户失败: %v", err)
+			conn.WriteProtoPacket(MsgIDRegister, &pb.RegisterResponse{
+				Code: 500, Msg: "注册失败，服务器错误",
+			})
+			return
+		}
+
+		logger.Log.Infof("新用户注册成功: %s (ID: %d)", req.Username, user.ID)
+		conn.WriteProtoPacket(MsgIDRegister, &pb.RegisterResponse{
+			Code: 200, Msg: "注册成功",
 		})
 	}
 }
