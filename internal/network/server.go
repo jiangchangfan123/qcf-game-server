@@ -2,9 +2,9 @@ package network
 
 import (
 	"GameServer/internal/config"
+	"GameServer/internal/pkg/logger"
 	"GameServer/internal/session"
 	"context"
-	"log"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -34,7 +34,7 @@ func NewServer() *Server {
 }
 
 func (s *Server) Shutdown() {
-	log.Println("开始优雅关闭服务器...")
+	logger.Log.Info("开始优雅关闭服务器...")
 	s.cancel()
 
 	if s.Listener != nil {
@@ -43,11 +43,11 @@ func (s *Server) Shutdown() {
 
 	// 等待所有连接自然关闭
 	for active := atomic.LoadInt64(&s.activeConns); active > 0; active = atomic.LoadInt64(&s.activeConns) {
-		log.Printf("等待 %d 个连接关闭...", active)
+		logger.Log.Infof("等待 %d 个连接关闭...", active)
 		time.Sleep(1 * time.Second)
 	}
 
-	log.Println("服务器已关闭")
+	logger.Log.Info("服务器已关闭")
 }
 
 func (s *Server) RegisterHandler(msgID uint16, handler HandlerFunc) {
@@ -57,10 +57,10 @@ func (s *Server) RegisterHandler(msgID uint16, handler HandlerFunc) {
 func (s *Server) Start() {
 	listener, err := net.Listen("tcp", config.C.Port)
 	if err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+		logger.Log.Fatalf("Failed to start server: %v", err)
 	}
 	s.Listener = listener
-	log.Printf("Server started. listening on %s", config.C.Port)
+	logger.Log.Infof("Server started. listening on %s", config.C.Port)
 
 	for {
 		conn, err := listener.Accept()
@@ -68,10 +68,10 @@ func (s *Server) Start() {
 			// 如果是关闭导致的错误，直接退出循环
 			select {
 			case <-s.ctx.Done():
-				log.Println("监听器已关闭，停止接受新连接")
+				logger.Log.Info("监听器已关闭，停止接受新连接")
 				return
 			default:
-				log.Printf("Accept error: %v", err)
+				logger.Log.Errorf("Accept error: %v", err)
 				continue
 			}
 		}
@@ -102,21 +102,21 @@ func (s *Server) handleConnection(rawConn net.Conn) {
 
 		//连接断开时，清理session
 		s.SessionManager.Remove(conn.ID)
-		log.Printf("Connection closed: %s, online: %d",
+		logger.Log.Infof("Connection closed: %s, online: %d",
 			conn.RemoteAddr().String(), s.SessionManager.OnlineCount())
 		conn.Close()
 	}()
 
-	log.Printf("New connection from: %s", conn.RemoteAddr().String())
+	logger.Log.Infof("New connection from: %s", conn.RemoteAddr().String())
 
 	for {
 		pkt, err := conn.ReadPacket()
 		if err != nil {
-			log.Printf("Connection %s closed or error: %v",
+			logger.Log.Errorf("Connection %s closed or error: %v",
 				conn.RemoteAddr().String(), err)
 			return
 		}
-		log.Printf("Received from %s: %s", conn.RemoteAddr().String(), pkt.String())
+		logger.Log.Infof("Received from %s: %s", conn.RemoteAddr().String(), pkt.String())
 
 		s.Router.Handle(conn, pkt)
 	}
@@ -137,13 +137,13 @@ func (s *Server) heartbeatChecker(conn *Conn) {
 	for {
 		select {
 		case <-s.ctx.Done():
-			log.Printf("服务器关闭，断开连接: %s (conn=%d)",
+			logger.Log.Infof("服务器关闭，断开连接: %s (conn=%d)",
 				conn.RemoteAddr().String(), conn.ID)
 			conn.Close() // 关闭连接 → ReadPacket 返回 error → handleConnection 退出
 			return
 		case <-ticker.C:
 			if time.Since(conn.LastHeartbeat) > timeout {
-				log.Printf("心跳超时, 强制断开连接: %s (conn=%d)",
+				logger.Log.Warnf("心跳超时, 强制断开连接: %s (conn=%d)",
 					conn.RemoteAddr().String(), conn.ID)
 				conn.Close()
 				return

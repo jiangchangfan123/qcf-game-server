@@ -1,7 +1,7 @@
 package network
 
 import (
-	"GameServer/pkg/logger"
+	"GameServer/internal/pkg/logger"
 	"bufio"
 	"net"
 	"sync"
@@ -21,6 +21,8 @@ type Conn struct {
 	writer        *bufio.Writer
 	writeLock     sync.Mutex
 	session       interface{}
+	attributes    map[string]interface{}
+	attrMu        sync.RWMutex
 	LastHeartbeat time.Time
 }
 
@@ -30,6 +32,7 @@ func NewConn(raw net.Conn) *Conn {
 		RawConn:       raw,
 		reader:        bufio.NewReader(raw),
 		writer:        bufio.NewWriter(raw),
+		attributes:    make(map[string]interface{}),
 		LastHeartbeat: time.Now(),
 	}
 }
@@ -42,6 +45,20 @@ func (c *Conn) SetSession(s interface{}) {
 // GetSession 获取会话
 func (c *Conn) GetSession() interface{} {
 	return c.session
+}
+
+// 获取连接属性
+func (c *Conn) GetAttribute(key string) interface{} {
+	c.attrMu.RLock()
+	defer c.attrMu.RUnlock()
+	return c.attributes[key]
+}
+
+// 设置连接属性
+func (c *Conn) SetAttribute(key string, value interface{}) {
+	c.attrMu.Lock()
+	defer c.attrMu.Unlock()
+	c.attributes[key] = value
 }
 
 // ReadPacket 从连接中读取一个完整数据包

@@ -3,6 +3,10 @@ port: ":8080"
 heartbeat:
   timeout: 30   #超过30秒没收到心跳自动断开
 
+jtw:
+  secret: "secret"
+  expire_hours: 24 #token过期时间
+
 database:
   host: "localhost"
   port: 3306

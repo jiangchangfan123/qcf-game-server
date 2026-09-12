@@ -5,7 +5,7 @@ import (
 	"GameServer/internal/db"
 	"GameServer/internal/game"
 	"GameServer/internal/network"
-	"GameServer/pkg/logger"
+	"GameServer/internal/pkg/logger"
 	"flag"
 	"os"
 	"os/signal"

@@ -3,10 +3,10 @@ package game
 import (
 	"GameServer/internal/network"
 	"GameServer/internal/pb"
+	"GameServer/internal/pkg/jwt"
+	"GameServer/internal/pkg/logger"
 	"GameServer/internal/session"
 	"GameServer/models"
-	"GameServer/pkg/logger"
-	"log"
 	"time"
 
 	"google.golang.org/protobuf/proto"
@@ -21,22 +21,24 @@ const (
 	MsgIDLeaveRoom = 5 //离开房间
 	MsgIDSysNotify = 6 //系统通知
 	MsgIDRegister  = 7 //注册请求
+	MsgIDAuth      = 8 //认证请求
 )
 
 // RegisterHandlers 将所有游戏消息处理函数注册到路由上
 func RegisterHandlers(router *network.Router, sm *session.SessionManager, srv *network.Server) {
 	router.Register(MsgIDHeartbeat, HandleHeartbeat(sm))
 	router.Register(MsgIDLogin, HandleLogin(sm))
-	router.Register(MsgIDChat, HandleChat(sm, srv))
-	router.Register(MsgIDJoinRoom, HandleJoinRoom(sm, srv))
-	router.Register(MsgIDLeaveRoom, HandleLeaveRoom(sm, srv))
+	router.Register(MsgIDChat, network.AuthMiddleware(HandleChat(sm, srv)))
+	router.Register(MsgIDJoinRoom, network.AuthMiddleware(HandleJoinRoom(sm, srv)))
+	router.Register(MsgIDLeaveRoom, network.AuthMiddleware(HandleLeaveRoom(sm, srv)))
 	router.Register(MsgIDRegister, HandleRegister())
+	router.Register(MsgIDAuth, HandleAuth(sm))
 }
 
 // HandleHeartbeat 处理心跳包 —— 客户端定期发来证明还活着
 func HandleHeartbeat(sm *session.SessionManager) network.HandlerFunc {
 	return func(conn *network.Conn, pkt *network.Packet) {
-		log.Printf("收到心跳 from %s", conn.RemoteAddr().String())
+		logger.Log.Infof("收到心跳 from %s", conn.RemoteAddr().String())
 		conn.UpdateHeartbeat() //更新最后心跳时间
 		conn.WriteProtoPacket(MsgIDHeartbeat, &pb.Heartbeat{})
 	}
@@ -47,10 +49,10 @@ func HandleLogin(sm *session.SessionManager) network.HandlerFunc {
 		//反序列化
 		req := &pb.LoginRequest{}
 		if err := proto.Unmarshal(pkt.Data, req); err != nil {
-			log.Printf("登录反序列化失败: %v", err)
+			logger.Log.Errorf("登录反序列化失败: %v", err)
 			return
 		}
-		log.Printf("收到登录请求 from %s, 用户名: %s",
+		logger.Log.Infof("收到登录请求 from %s, 用户名: %s",
 			conn.RemoteAddr().String(), req.Username)
 
 		// =========新增：查数据库============
@@ -62,26 +64,29 @@ func HandleLogin(sm *session.SessionManager) network.HandlerFunc {
 			return
 		}
 		if user == nil {
-			log.Printf("用户不存在: %s", req.Username)
+			logger.Log.Warnf("用户不存在: %s", req.Username)
 			resp := &pb.LoginResponse{Code: 1, Msg: "用户不存在"}
 			conn.WriteProtoPacket(MsgIDLogin, resp)
 			return
 		}
 		// 密码校验（后续换成 bcrypt 哈希对比）
 		if user.Password != req.Password {
-			log.Printf("密码错误: %s", req.Username)
+			logger.Log.Warnf("密码错误: %s", req.Username)
 			resp := &pb.LoginResponse{Code: 2, Msg: "密码错误"}
 			conn.WriteProtoPacket(MsgIDLogin, resp)
 			return
 		}
 
-		//3. 创建Session并绑定到连接
-		resp := &pb.LoginResponse{
-			Code: 0,
-			Msg:  "login success",
-			Uid:  user.ID,
+		//3. 生成JWT token
+		token, err := jwt.GenerateToken(user.ID, user.Username, user.Nickname)
+		if err != nil {
+			logger.Log.Errorf("生成JWT失败: %v", err)
+			resp := &pb.LoginResponse{Code: 500, Msg: "服务器内部错误"}
+			conn.WriteProtoPacket(MsgIDLogin, resp)
+			return
 		}
 
+		//4. 创建Session并绑定到连接
 		s := &session.Session{
 			ConnID:    conn.ID,
 			UID:       user.ID,
@@ -92,9 +97,15 @@ func HandleLogin(sm *session.SessionManager) network.HandlerFunc {
 
 		sm.Add(s)
 		conn.SetSession(s)
-		log.Printf("玩家 %s 登录成功, 在线人数: %d", req.Username, sm.OnlineCount())
+		logger.Log.Infof("玩家 %s 登录成功, 在线人数: %d", req.Username, sm.OnlineCount())
 
-		//回复客户端
+		//5. 回复客户端（包含token）
+		resp := &pb.LoginResponse{
+			Code:  0,
+			Msg:   "login success",
+			Uid:   user.ID,
+			Token: token,
+		}
 		conn.WriteProtoPacket(MsgIDLogin, resp)
 	}
 }
@@ -104,20 +115,20 @@ func HandleChat(sm *session.SessionManager, srv *network.Server) network.Handler
 	return func(conn *network.Conn, pkt *network.Packet) {
 		msg := &pb.ChatMessage{}
 		if err := proto.Unmarshal(pkt.Data, msg); err != nil {
-			log.Printf("聊天反序列化失败: %v", err)
+			logger.Log.Errorf("聊天反序列化失败: %v", err)
 			return
 		}
 
 		// 通过 Session 获取玩家昵称
 		s := conn.GetSession()
 		if s == nil {
-			log.Printf("未登录玩家发来聊天消息, 拒绝")
+			logger.Log.Warn("未登录玩家发来聊天消息, 拒绝")
 			return
 		}
 		player := s.(*session.Session)
 		msg.Nickname = player.Nickname // 强制用服务端的昵称，防止客户端伪造
 
-		log.Printf("收到聊天 from [%s]: %s", player.Nickname, msg.Content)
+		logger.Log.Infof("收到聊天 from [%s]: %s", player.Nickname, msg.Content)
 
 		// TODO: 广播给房间内其他人
 		targetIDs := sm.GetRoomConnIDs(player.RoomID, player.UID)
@@ -135,7 +146,7 @@ func HandleJoinRoom(sm *session.SessionManager, srv *network.Server) network.Han
 	return func(conn *network.Conn, pkt *network.Packet) {
 		req := &pb.JoinRoomRequest{}
 		if err := proto.Unmarshal(pkt.Data, req); err != nil {
-			log.Printf("加入房间反序列化失败: %v", err)
+			logger.Log.Errorf("加入房间反序列化失败: %v", err)
 			return
 		}
 
@@ -171,7 +182,7 @@ func HandleJoinRoom(sm *session.SessionManager, srv *network.Server) network.Han
 		// 切换房间
 		player.RoomID = newRoomID
 
-		log.Printf("玩家 %s 从房间[%d]切换到房间[%d]", player.Nickname, oldRoomID, newRoomID)
+		logger.Log.Infof("玩家 %s 从房间[%d]切换到房间[%d]", player.Nickname, oldRoomID, newRoomID)
 
 		// 通知旧房间：xxx 离开了
 		notifyLeave(sm, srv, oldRoomID, player.Nickname)
@@ -209,7 +220,7 @@ func HandleLeaveRoom(sm *session.SessionManager, srv *network.Server) network.Ha
 		oldRoomID := player.RoomID
 		player.RoomID = 0 // 回到大厅
 
-		log.Printf("玩家 %s 离开了房间[%d]", player.Nickname, oldRoomID)
+		logger.Log.Infof("玩家 %s 离开了房间[%d]", player.Nickname, oldRoomID)
 
 		// 通知房间内其他人
 		notifyLeave(sm, srv, oldRoomID, player.Nickname)
@@ -301,5 +312,57 @@ func notifyLeave(sm *session.SessionManager, srv *network.Server, roomID int64, 
 		if targetConn, ok := srv.GetConn(connID); ok {
 			targetConn.WriteProtoPacket(MsgIDSysNotify, notify)
 		}
+	}
+}
+
+// HandleAuth 处理认证请求（客户端携带token认证）
+func HandleAuth(sm *session.SessionManager) network.HandlerFunc {
+	return func(conn *network.Conn, pkt *network.Packet) {
+		req := &pb.AuthRequest{}
+		if err := proto.Unmarshal(pkt.Data, req); err != nil {
+			logger.Log.Errorf("认证请求反序列化失败: %v", err)
+			conn.WriteProtoPacket(MsgIDAuth, &pb.AuthResponse{
+				Code: 1,
+				Msg:  "请求格式错误",
+			})
+			return
+		}
+
+		// 验证token
+		claims, err := jwt.ValidateToken(req.Token)
+		if err != nil {
+			logger.Log.Warnf("token验证失败: %v", err)
+			conn.WriteProtoPacket(MsgIDAuth, &pb.AuthResponse{
+				Code: 2,
+				Msg:  "token无效或已过期",
+			})
+			return
+		}
+
+		// 创建或更新session
+		s := &session.Session{
+			ConnID:    conn.ID,
+			UID:       claims.UserID,
+			Nickname:  claims.Nickname,
+			LoginTime: time.Now(),
+			RoomID:    1,
+		}
+
+		sm.Add(s)
+		conn.SetSession(s)
+
+		// 设置连接属性
+		conn.SetAttribute("user_id", claims.UserID)
+		conn.SetAttribute("username", claims.Username)
+		conn.SetAttribute("nickname", claims.Nickname)
+
+		logger.Log.Infof("玩家 %s 认证成功, 在线人数: %d", claims.Username, sm.OnlineCount())
+
+		conn.WriteProtoPacket(MsgIDAuth, &pb.AuthResponse{
+			Code:     0,
+			Msg:      "认证成功",
+			Uid:      claims.UserID,
+			Nickname: claims.Nickname,
+		})
 	}
 }

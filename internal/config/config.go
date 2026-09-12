@@ -10,6 +10,7 @@ type ServerConfig struct {
 	Port      string          `yaml:"port"`
 	Heartbeat HeartbeatConfig `yaml:"heartbeat"`
 	Database  DatabaseConfig  `yaml:"database"`
+	JWT       JWTConfig       `yaml:"jwt"`
 }
 
 type HeartbeatConfig struct {
@@ -26,6 +27,11 @@ type DatabaseConfig struct {
 	MaxIdleConns int    `yaml:"max_idle_conns"`
 }
 
+type JWTConfig struct {
+	Secret      string `yaml:"secret"`
+	ExpireHours int    `yaml:"expire_hours"`
+}
+
 var C ServerConfig
 
 func Init(path string) error {
@@ -39,6 +45,10 @@ func Init(path string) error {
 	// 默认超时30秒
 	if C.Heartbeat.Timeout <= 0 {
 		C.Heartbeat.Timeout = 30
+	}
+	// 默认JWT过期时间24小时
+	if C.JWT.ExpireHours <= 0 {
+		C.JWT.ExpireHours = 24
 	}
 	return nil
 }

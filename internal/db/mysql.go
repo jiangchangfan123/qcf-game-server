@@ -2,7 +2,7 @@ package db
 
 import (
 	"GameServer/internal/config"
-	"GameServer/pkg/logger"
+	"GameServer/internal/pkg/logger"
 	"fmt"
 
 	"gorm.io/driver/mysql"

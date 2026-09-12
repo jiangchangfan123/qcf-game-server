@@ -16,6 +16,18 @@ message LoginResponse{
     int32 code = 1; // 0=成功, 其它=失败
     string msg = 2;
     int64 uid = 3; // 成功时返回玩家ID
+    string token = 4 ; // 成功时返回JWT TOKEN
+}
+
+message AuthRequest {
+    string token = 1;
+}
+
+message AuthResponse {
+    int32 code = 1; //0=成功，1=token无效, 2=token过期
+    string msg = 2;
+    int64 uid = 3;
+    string nickname = 4;
 }
 
 // 聊天消息

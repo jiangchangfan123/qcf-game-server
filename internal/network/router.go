@@ -1,6 +1,6 @@
 package network
 
-import "log"
+import "GameServer/internal/pkg/logger"
 
 type HandlerFunc func(conn *Conn, pkt *Packet)
 
@@ -17,7 +17,7 @@ func NewRouter() *Router {
 //注册一个消息处理函数
 func (r *Router) Register(MsgID uint16, handler HandlerFunc) {
 	if _, exists := r.handlers[MsgID]; exists {
-		log.Printf("Warning: handler for msgID %d already registered, will be overwritten", MsgID)
+		logger.Log.Warnf("Warning: handler for msgID %d already registered, will be overwritten", MsgID)
 	}
 	r.handlers[MsgID] = handler
 }
@@ -26,7 +26,7 @@ func (r *Router) Register(MsgID uint16, handler HandlerFunc) {
 func (r *Router) Handle(conn *Conn, pkt *Packet) {
 	handler, ok := r.handlers[pkt.MsgID]
 	if !ok {
-		log.Printf("No handler found for msgID: %d", pkt.MsgID)
+		logger.Log.Warnf("No handler found for msgID: %d", pkt.MsgID)
 		return
 	}
 	handler(conn, pkt)
