@@ -72,3 +72,56 @@ message RegisterResponse {
     int32 code = 1;
     string msg = 2;
 }
+
+// ====== 对战系统 ======
+
+// 匹配请求
+message MatchRequest {}
+
+// 匹配响应（进入匹配队列）
+message MatchResponse {
+    int32 code = 1;  // 0=已进入匹配队列
+    string msg = 2;
+}
+
+// 对局开始（服务端推送）
+message BattleStart {
+    int64 battle_id  = 1;  // 对局ID
+    int64 opponent   = 2;  // 对手UID
+    string nickname  = 3;  // 对手昵称
+    int32  round     = 4;  // 当前小局（1~7）
+}
+
+// 出牌请求
+message PlayCardRequest {
+    int64 battle_id = 1;
+    int32 card_type = 2;  // 0=平民, 1=国王, 2=奴隶
+}
+
+// 出牌响应
+message PlayCardResponse {
+    int32 code = 1;  // 0=成功, 1=对局已结束, 2=不是你的回合, 3=没有这张牌
+    string msg = 2;
+}
+
+// 回合结果（服务端推送给双方）
+message RoundResult {
+    int64 battle_id   = 1;  // 对局ID
+    int32 round       = 2;  // 第几个小局（1~7）
+    int32 sub_round   = 3;  // 小局内第几张（1~5）
+    int32 my_card     = 4;  // 我出的牌
+    int32 op_card     = 5;  // 对手出的牌
+    int32 result      = 6;  // 本回合: 1=胜, 0=平, -1=负
+    int32 score1      = 7;  // 玩家1大分
+    int32 score2      = 8;  // 玩家2大分
+    bool  round_over  = 9;  // 小局是否结束（有人拿分或5张出完）
+    bool  game_over   = 10; // 比赛是否结束
+}
+
+// 对局结束（服务端推送）
+message BattleEnd {
+    int64 battle_id = 1;
+    int64 winner    = 2;  // 赢家UID（0=平局）
+    int32 score1    = 3;
+    int32 score2    = 4;
+}

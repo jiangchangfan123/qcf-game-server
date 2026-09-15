@@ -8,9 +8,6 @@ import (
 	"time"
 )
 
-// Middleware 是中间件类型
-type Middleware func(HandlerFunc) HandlerFunc
-
 func NewAuthMiddleware(sm *session.SessionManager) Middleware {
 	return func(next HandlerFunc) HandlerFunc {
 		return func(conn *Conn, pkt *Packet) {

@@ -3,6 +3,7 @@ package network
 import "GameServer/internal/pkg/logger"
 
 type HandlerFunc func(conn *Conn, pkt *Packet)
+type Middleware func(HandlerFunc) HandlerFunc
 
 type Router struct {
 	handlers    map[uint16]HandlerFunc
