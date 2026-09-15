@@ -14,14 +14,22 @@ import (
 
 // 消息ID常量定义（后续所有消息都集中在这里管理）
 const (
-	MsgIDHeartbeat = 1 // 心跳包
-	MsgIDLogin     = 2 // 登录请求
-	MsgIDChat      = 3 // 聊天消息
-	MsgIDJoinRoom  = 4 //加入房间
-	MsgIDLeaveRoom = 5 //离开房间
-	MsgIDSysNotify = 6 //系统通知
-	MsgIDRegister  = 7 //注册请求
-	MsgIDAuth      = 8 //认证请求
+	MsgIDHeartbeat        = 1  // 心跳包
+	MsgIDLogin            = 2  // 登录请求
+	MsgIDChat             = 3  // 聊天消息
+	MsgIDJoinRoom         = 4  //加入房间
+	MsgIDLeaveRoom        = 5  //离开房间
+	MsgIDSysNotify        = 6  //系统通知
+	MsgIDRegister         = 7  //注册请求
+	MsgIDAuth             = 8  //认证请求
+	MsgIDMatch            = 9  // 随机匹配
+	MsgIDMatchCancel      = 10 // 取消匹配
+	MsgIDBattleCreateRoom = 11 // 创建房间
+	MsgIDBattleJoinRoom   = 12 // 加入房间
+	MsgIDBattleStart      = 13 // 对局开始（推送）
+	MsgIDPlayCard         = 14 // 出牌
+	MsgIDRoundResult      = 15 // 回合结果（推送）
+	MsgIDBattleEnd        = 16 // 对局结束（推送）
 )
 
 // RegisterHandlers 将所有游戏消息处理函数注册到路由上
