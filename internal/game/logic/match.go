@@ -14,10 +14,13 @@ type PlayerInfo struct {
 
 // MatchManager 匹配管理器
 type MatchManager struct {
-	mu    sync.Mutex
-	queue []*PlayerInfo        // 随机匹配队列
-	rooms map[string]*RoomInfo // 房间码 → 房间信息
-	bm    *BattleManager
+	queueMu sync.Mutex    // 保护 queue
+	queue   []*PlayerInfo // 随机匹配队列
+
+	roomMu sync.Mutex           // 保护 rooms
+	rooms  map[string]*RoomInfo // 房间码 → 房间信息
+
+	bm *BattleManager
 }
 
 // RoomInfo 房间信息
@@ -44,8 +47,8 @@ type MatchResult struct {
 }
 
 func (m *MatchManager) JoinQueue(p *PlayerInfo) (*MatchResult, bool) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.queueMu.Lock()
+	defer m.queueMu.Unlock()
 
 	//已在队列中
 	for _, v := range m.queue {
@@ -81,8 +84,8 @@ func (m *MatchManager) JoinQueue(p *PlayerInfo) (*MatchResult, bool) {
 
 // 取消匹配
 func (m *MatchManager) CancelQueue(uid int64) bool {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.queueMu.Lock()
+	defer m.queueMu.Unlock()
 
 	for i, v := range m.queue {
 		if v.UID == uid {
@@ -97,8 +100,8 @@ func (m *MatchManager) CancelQueue(uid int64) bool {
 // ====== 房间匹配 ======
 
 func (m *MatchManager) CreateRoom(p *PlayerInfo) string {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.roomMu.Lock()
+	defer m.roomMu.Unlock()
 
 	code := m.generateRoomCode()
 	m.rooms[code] = &RoomInfo{
@@ -111,8 +114,8 @@ func (m *MatchManager) CreateRoom(p *PlayerInfo) string {
 
 // JoinRoom 通过房间码加入
 func (m *MatchManager) JoinRoom(code string, joiner *PlayerInfo) (*MatchResult, bool) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.roomMu.Lock()
+	defer m.roomMu.Unlock()
 
 	room, ok := m.rooms[code]
 	if !ok {
