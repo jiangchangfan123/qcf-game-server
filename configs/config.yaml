@@ -3,7 +3,7 @@ port: ":8080"
 heartbeat:
   timeout: 30   #超过30秒没收到心跳自动断开
 
-jtw:
+jwt:
   secret: "secret"
   expire_hours: 24 #token过期时间
 

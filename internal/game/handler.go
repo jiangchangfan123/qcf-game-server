@@ -26,13 +26,19 @@ const (
 
 // RegisterHandlers 将所有游戏消息处理函数注册到路由上
 func RegisterHandlers(router *network.Router, sm *session.SessionManager, srv *network.Server) {
-	router.Register(MsgIDHeartbeat, HandleHeartbeat(sm))
-	router.Register(MsgIDLogin, HandleLogin(sm))
-	router.Register(MsgIDChat, network.AuthMiddleware(HandleChat(sm, srv)))
-	router.Register(MsgIDJoinRoom, network.AuthMiddleware(HandleJoinRoom(sm, srv)))
-	router.Register(MsgIDLeaveRoom, network.AuthMiddleware(HandleLeaveRoom(sm, srv)))
-	router.Register(MsgIDRegister, HandleRegister())
-	router.Register(MsgIDAuth, HandleAuth(sm))
+	// 添加认证中间件（需要 session 的接口都走这个）
+	router.AddMiddleware(network.NewAuthMiddleware(sm))
+
+	// 不需要认证的消息
+	router.RegisterRaw(MsgIDHeartbeat, HandleHeartbeat(sm))
+	router.RegisterRaw(MsgIDLogin, HandleLogin(sm))
+	router.RegisterRaw(MsgIDRegister, HandleRegister())
+	router.RegisterRaw(MsgIDAuth, HandleAuth(sm))
+
+	// 需要认证的消息（自动走 AuthMiddleware）
+	router.Register(MsgIDChat, HandleChat(sm, srv))
+	router.Register(MsgIDJoinRoom, HandleJoinRoom(sm, srv))
+	router.Register(MsgIDLeaveRoom, HandleLeaveRoom(sm, srv))
 }
 
 // HandleHeartbeat 处理心跳包 —— 客户端定期发来证明还活着
@@ -98,6 +104,7 @@ func HandleLogin(sm *session.SessionManager) network.HandlerFunc {
 		sm.Add(s)
 		conn.SetSession(s)
 		logger.Log.Infof("玩家 %s 登录成功, 在线人数: %d", req.Username, sm.OnlineCount())
+		conn.SetAttribute("token", token)
 
 		//5. 回复客户端（包含token）
 		resp := &pb.LoginResponse{
