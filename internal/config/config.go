@@ -10,6 +10,7 @@ type ServerConfig struct {
 	Port      string          `yaml:"port"`
 	Heartbeat HeartbeatConfig `yaml:"heartbeat"`
 	Database  DatabaseConfig  `yaml:"database"`
+	Redis     RedisConfig     `yaml:"redis"`
 	JWT       JWTConfig       `yaml:"jwt"`
 }
 
@@ -25,6 +26,12 @@ type DatabaseConfig struct {
 	Dbname       string `yaml:"dbname"`
 	MaxOpenConns int    `yaml:"max_open_conns"`
 	MaxIdleConns int    `yaml:"max_idle_conns"`
+}
+
+type RedisConfig struct {
+	Addr     string `yaml:"addr"`
+	Password string `yaml:"password"`
+	DB       int    `yaml:"db"`
 }
 
 type JWTConfig struct {
