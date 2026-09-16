@@ -1,11 +1,14 @@
-package game
+package handler
 
 import (
 	"GameServer/internal/game/logic"
+	"GameServer/internal/game/timer"
 	"GameServer/internal/network"
 	"GameServer/internal/pb"
 	"GameServer/internal/pkg/logger"
 	"GameServer/internal/session"
+	"GameServer/models"
+	"time"
 
 	"google.golang.org/protobuf/proto"
 )
@@ -42,7 +45,7 @@ func RegisterBattleHandlers(router *network.Router, srv *network.Server) {
 func InitBattleSystem() {
 	battleManager = logic.NewBattleManager()
 	matchManager = logic.NewMatchManager(battleManager)
-	InitTimerManager() // 新增初始化计时器
+	timer.Init(&BattleTimeoutHandler{}) // 初始化计时器，传入回调实现
 }
 
 func HandleMatch(srv *network.Server) network.HandlerFunc {
@@ -210,7 +213,7 @@ func HandlePlayCard(srv *network.Server) network.HandlerFunc {
 		})
 
 		// 停掉出牌者的计时器（对方的还在跑）
-		StopPlayerTimerGlobal(req.BattleId, player.UID)
+		timer.StopPlayerTimerGlobal(req.BattleId, player.UID)
 
 		// 如果有回合结果，通知双方
 		if roundResult {
@@ -223,6 +226,35 @@ func HandlePlayCard(srv *network.Server) network.HandlerFunc {
 			battleManager.Remove(req.BattleId)
 		}
 	}
+}
+
+// BattleTimeoutHandler 实现 timer.TimeoutHandler 接口
+type BattleTimeoutHandler struct{}
+
+func (h *BattleTimeoutHandler) OnTimeout(battleID int64, battle *logic.Battle, uid int64, srv *network.Server) {
+	logger.Log.Infof("对局 %d 玩家 %d 超时，自动出牌", battleID, uid)
+
+	roundResult, gameOver, s1, s2, winner, err := battle.AutoPlay(uid)
+	if err != nil {
+		logger.Log.Errorf("自动出牌失败: %v", err)
+		return
+	}
+
+	// 通知双方
+	if roundResult {
+		notifyRoundResult(srv, battle, battleID, s1, s2, gameOver, winner)
+	}
+
+	if gameOver {
+		notifyBattleEnd(srv, battle, battleID, s1, s2, winner)
+		battleManager.Remove(battleID)
+		timer.StopBattleTimerGlobal(battleID)
+		return
+	}
+
+	// 小局还没完 → 重启双方计时器（下一个子回合）
+	timer.StopBattleTimerGlobal(battleID)
+	timer.StartBattleTimerGlobal(battleID, battle, srv)
 }
 
 // ====== 辅助函数 ======
@@ -252,7 +284,7 @@ func notifyBattleStart(srv *network.Server, result *logic.MatchResult) {
 
 	battle := battleManager.Get(result.BattleID)
 	if battle != nil {
-		StartBattleTimerGlobal(result.BattleID, battle, srv)
+		timer.StartBattleTimerGlobal(result.BattleID, battle, srv)
 	}
 }
 
@@ -327,5 +359,19 @@ func notifyBattleEnd(srv *network.Server, battle *logic.Battle, battleID int64, 
 	}
 	if p2Conn != nil {
 		p2Conn.WriteProtoPacket(MsgIDBattleEnd, end)
+	}
+
+	//保存对局记录
+	record := &models.GameRecord{
+		Player1:  battle.Hand1.UID,
+		Player2:  battle.Hand2.UID,
+		Winner:   winner,
+		Score1:   s1,
+		Score2:   s2,
+		Round:    battle.Round,
+		Duration: int32(time.Since(battle.RoundStart).Seconds()),
+	}
+	if err := models.SaveRecord(record); err != nil {
+		logger.Log.Errorf("保存对局记录失败: %v", err)
 	}
 }

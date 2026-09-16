@@ -1443,6 +1443,383 @@ func (x *BattleEnd) GetScore2() int32 {
 	return 0
 }
 
+type LeaderboardRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Top           int32                  `protobuf:"varint,1,opt,name=top,proto3" json:"top,omitempty"` // 前N名（默认10）
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LeaderboardRequest) Reset() {
+	*x = LeaderboardRequest{}
+	mi := &file_proto_messages_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LeaderboardRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LeaderboardRequest) ProtoMessage() {}
+
+func (x *LeaderboardRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_messages_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LeaderboardRequest.ProtoReflect.Descriptor instead.
+func (*LeaderboardRequest) Descriptor() ([]byte, []int) {
+	return file_proto_messages_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *LeaderboardRequest) GetTop() int32 {
+	if x != nil {
+		return x.Top
+	}
+	return 0
+}
+
+type LeaderboardResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Items         []*LeaderboardItem     `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LeaderboardResponse) Reset() {
+	*x = LeaderboardResponse{}
+	mi := &file_proto_messages_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LeaderboardResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LeaderboardResponse) ProtoMessage() {}
+
+func (x *LeaderboardResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_messages_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LeaderboardResponse.ProtoReflect.Descriptor instead.
+func (*LeaderboardResponse) Descriptor() ([]byte, []int) {
+	return file_proto_messages_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *LeaderboardResponse) GetItems() []*LeaderboardItem {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+type LeaderboardItem struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Rank          int32                  `protobuf:"varint,1,opt,name=rank,proto3" json:"rank,omitempty"`
+	Uid           int64                  `protobuf:"varint,2,opt,name=uid,proto3" json:"uid,omitempty"`
+	Nickname      string                 `protobuf:"bytes,3,opt,name=nickname,proto3" json:"nickname,omitempty"`
+	Win           int64                  `protobuf:"varint,4,opt,name=win,proto3" json:"win,omitempty"`
+	Total         int64                  `protobuf:"varint,5,opt,name=total,proto3" json:"total,omitempty"`
+	WinRate       float32                `protobuf:"fixed32,6,opt,name=win_rate,json=winRate,proto3" json:"win_rate,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LeaderboardItem) Reset() {
+	*x = LeaderboardItem{}
+	mi := &file_proto_messages_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LeaderboardItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LeaderboardItem) ProtoMessage() {}
+
+func (x *LeaderboardItem) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_messages_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LeaderboardItem.ProtoReflect.Descriptor instead.
+func (*LeaderboardItem) Descriptor() ([]byte, []int) {
+	return file_proto_messages_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *LeaderboardItem) GetRank() int32 {
+	if x != nil {
+		return x.Rank
+	}
+	return 0
+}
+
+func (x *LeaderboardItem) GetUid() int64 {
+	if x != nil {
+		return x.Uid
+	}
+	return 0
+}
+
+func (x *LeaderboardItem) GetNickname() string {
+	if x != nil {
+		return x.Nickname
+	}
+	return ""
+}
+
+func (x *LeaderboardItem) GetWin() int64 {
+	if x != nil {
+		return x.Win
+	}
+	return 0
+}
+
+func (x *LeaderboardItem) GetTotal() int64 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *LeaderboardItem) GetWinRate() float32 {
+	if x != nil {
+		return x.WinRate
+	}
+	return 0
+}
+
+// 战绩查询
+type BattleRecordRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Uid           int64                  `protobuf:"varint,1,opt,name=uid,proto3" json:"uid,omitempty"`
+	Limit         int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"` // 查询最近N条
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BattleRecordRequest) Reset() {
+	*x = BattleRecordRequest{}
+	mi := &file_proto_messages_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BattleRecordRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BattleRecordRequest) ProtoMessage() {}
+
+func (x *BattleRecordRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_messages_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BattleRecordRequest.ProtoReflect.Descriptor instead.
+func (*BattleRecordRequest) Descriptor() ([]byte, []int) {
+	return file_proto_messages_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *BattleRecordRequest) GetUid() int64 {
+	if x != nil {
+		return x.Uid
+	}
+	return 0
+}
+
+func (x *BattleRecordRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type BattleRecordResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Records       []*BattleRecordItem    `protobuf:"bytes,1,rep,name=records,proto3" json:"records,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BattleRecordResponse) Reset() {
+	*x = BattleRecordResponse{}
+	mi := &file_proto_messages_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BattleRecordResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BattleRecordResponse) ProtoMessage() {}
+
+func (x *BattleRecordResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_messages_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BattleRecordResponse.ProtoReflect.Descriptor instead.
+func (*BattleRecordResponse) Descriptor() ([]byte, []int) {
+	return file_proto_messages_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *BattleRecordResponse) GetRecords() []*BattleRecordItem {
+	if x != nil {
+		return x.Records
+	}
+	return nil
+}
+
+type BattleRecordItem struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Player1       int64                  `protobuf:"varint,2,opt,name=player1,proto3" json:"player1,omitempty"`
+	Player2       int64                  `protobuf:"varint,3,opt,name=player2,proto3" json:"player2,omitempty"`
+	Winner        int64                  `protobuf:"varint,4,opt,name=winner,proto3" json:"winner,omitempty"`
+	Score1        int32                  `protobuf:"varint,5,opt,name=score1,proto3" json:"score1,omitempty"`
+	Score2        int32                  `protobuf:"varint,6,opt,name=score2,proto3" json:"score2,omitempty"`
+	Round         int32                  `protobuf:"varint,7,opt,name=round,proto3" json:"round,omitempty"`
+	Duration      int32                  `protobuf:"varint,8,opt,name=duration,proto3" json:"duration,omitempty"`
+	CreatedAt     int64                  `protobuf:"varint,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BattleRecordItem) Reset() {
+	*x = BattleRecordItem{}
+	mi := &file_proto_messages_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BattleRecordItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BattleRecordItem) ProtoMessage() {}
+
+func (x *BattleRecordItem) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_messages_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BattleRecordItem.ProtoReflect.Descriptor instead.
+func (*BattleRecordItem) Descriptor() ([]byte, []int) {
+	return file_proto_messages_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *BattleRecordItem) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *BattleRecordItem) GetPlayer1() int64 {
+	if x != nil {
+		return x.Player1
+	}
+	return 0
+}
+
+func (x *BattleRecordItem) GetPlayer2() int64 {
+	if x != nil {
+		return x.Player2
+	}
+	return 0
+}
+
+func (x *BattleRecordItem) GetWinner() int64 {
+	if x != nil {
+		return x.Winner
+	}
+	return 0
+}
+
+func (x *BattleRecordItem) GetScore1() int32 {
+	if x != nil {
+		return x.Score1
+	}
+	return 0
+}
+
+func (x *BattleRecordItem) GetScore2() int32 {
+	if x != nil {
+		return x.Score2
+	}
+	return 0
+}
+
+func (x *BattleRecordItem) GetRound() int32 {
+	if x != nil {
+		return x.Round
+	}
+	return 0
+}
+
+func (x *BattleRecordItem) GetDuration() int32 {
+	if x != nil {
+		return x.Duration
+	}
+	return 0
+}
+
+func (x *BattleRecordItem) GetCreatedAt() int64 {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return 0
+}
+
 var File_proto_messages_proto protoreflect.FileDescriptor
 
 const file_proto_messages_proto_rawDesc = "" +
@@ -1534,7 +1911,34 @@ const file_proto_messages_proto_rawDesc = "" +
 	"\tbattle_id\x18\x01 \x01(\x03R\bbattleId\x12\x16\n" +
 	"\x06winner\x18\x02 \x01(\x03R\x06winner\x12\x16\n" +
 	"\x06score1\x18\x03 \x01(\x05R\x06score1\x12\x16\n" +
-	"\x06score2\x18\x04 \x01(\x05R\x06score2B\x0fZ\r./internal/pbb\x06proto3"
+	"\x06score2\x18\x04 \x01(\x05R\x06score2\"&\n" +
+	"\x12LeaderboardRequest\x12\x10\n" +
+	"\x03top\x18\x01 \x01(\x05R\x03top\"@\n" +
+	"\x13LeaderboardResponse\x12)\n" +
+	"\x05items\x18\x01 \x03(\v2\x13.pb.LeaderboardItemR\x05items\"\x96\x01\n" +
+	"\x0fLeaderboardItem\x12\x12\n" +
+	"\x04rank\x18\x01 \x01(\x05R\x04rank\x12\x10\n" +
+	"\x03uid\x18\x02 \x01(\x03R\x03uid\x12\x1a\n" +
+	"\bnickname\x18\x03 \x01(\tR\bnickname\x12\x10\n" +
+	"\x03win\x18\x04 \x01(\x03R\x03win\x12\x14\n" +
+	"\x05total\x18\x05 \x01(\x03R\x05total\x12\x19\n" +
+	"\bwin_rate\x18\x06 \x01(\x02R\awinRate\"=\n" +
+	"\x13BattleRecordRequest\x12\x10\n" +
+	"\x03uid\x18\x01 \x01(\x03R\x03uid\x12\x14\n" +
+	"\x05limit\x18\x02 \x01(\x05R\x05limit\"F\n" +
+	"\x14BattleRecordResponse\x12.\n" +
+	"\arecords\x18\x01 \x03(\v2\x14.pb.BattleRecordItemR\arecords\"\xef\x01\n" +
+	"\x10BattleRecordItem\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x18\n" +
+	"\aplayer1\x18\x02 \x01(\x03R\aplayer1\x12\x18\n" +
+	"\aplayer2\x18\x03 \x01(\x03R\aplayer2\x12\x16\n" +
+	"\x06winner\x18\x04 \x01(\x03R\x06winner\x12\x16\n" +
+	"\x06score1\x18\x05 \x01(\x05R\x06score1\x12\x16\n" +
+	"\x06score2\x18\x06 \x01(\x05R\x06score2\x12\x14\n" +
+	"\x05round\x18\a \x01(\x05R\x05round\x12\x1a\n" +
+	"\bduration\x18\b \x01(\x05R\bduration\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\t \x01(\x03R\tcreatedAtB\x0fZ\r./internal/pbb\x06proto3"
 
 var (
 	file_proto_messages_proto_rawDescOnce sync.Once
@@ -1548,7 +1952,7 @@ func file_proto_messages_proto_rawDescGZIP() []byte {
 	return file_proto_messages_proto_rawDescData
 }
 
-var file_proto_messages_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
+var file_proto_messages_proto_msgTypes = make([]protoimpl.MessageInfo, 32)
 var file_proto_messages_proto_goTypes = []any{
 	(*Heartbeat)(nil),                // 0: pb.Heartbeat
 	(*LoginRequest)(nil),             // 1: pb.LoginRequest
@@ -1576,13 +1980,21 @@ var file_proto_messages_proto_goTypes = []any{
 	(*PlayCardResponse)(nil),         // 23: pb.PlayCardResponse
 	(*RoundResult)(nil),              // 24: pb.RoundResult
 	(*BattleEnd)(nil),                // 25: pb.BattleEnd
+	(*LeaderboardRequest)(nil),       // 26: pb.LeaderboardRequest
+	(*LeaderboardResponse)(nil),      // 27: pb.LeaderboardResponse
+	(*LeaderboardItem)(nil),          // 28: pb.LeaderboardItem
+	(*BattleRecordRequest)(nil),      // 29: pb.BattleRecordRequest
+	(*BattleRecordResponse)(nil),     // 30: pb.BattleRecordResponse
+	(*BattleRecordItem)(nil),         // 31: pb.BattleRecordItem
 }
 var file_proto_messages_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	28, // 0: pb.LeaderboardResponse.items:type_name -> pb.LeaderboardItem
+	31, // 1: pb.BattleRecordResponse.records:type_name -> pb.BattleRecordItem
+	2,  // [2:2] is the sub-list for method output_type
+	2,  // [2:2] is the sub-list for method input_type
+	2,  // [2:2] is the sub-list for extension type_name
+	2,  // [2:2] is the sub-list for extension extendee
+	0,  // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_proto_messages_proto_init() }
@@ -1596,7 +2008,7 @@ func file_proto_messages_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_messages_proto_rawDesc), len(file_proto_messages_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   26,
+			NumMessages:   32,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

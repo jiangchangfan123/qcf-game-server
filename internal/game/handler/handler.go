@@ -1,4 +1,4 @@
-package game
+package handler
 
 import (
 	"GameServer/internal/network"
@@ -40,8 +40,11 @@ func RegisterHandlers(router *network.Router, sm *session.SessionManager, srv *n
 	router.Register(MsgIDJoinRoom, HandleJoinRoom(sm, srv))
 	router.Register(MsgIDLeaveRoom, HandleLeaveRoom(sm, srv))
 
-	// 新增：对战系统
+	// 对战系统
 	RegisterBattleHandlers(router, srv)
+
+	// 排行榜
+	RegisterLeaderboardHandlers(router)
 }
 
 // HandleHeartbeat 处理心跳包 —— 客户端定期发来证明还活着

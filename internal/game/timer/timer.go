@@ -1,17 +1,21 @@
-package game
+package timer
 
 import (
 	"GameServer/internal/game/logic"
 	"GameServer/internal/network"
-	"GameServer/internal/pkg/logger"
 	"time"
 )
+
+// TimeoutHandler 超时回调接口，由 handler 层实现
+type TimeoutHandler interface {
+	OnTimeout(battleID int64, battle *logic.Battle, uid int64, srv *network.Server)
+}
 
 // 全局 TimerManager 实例
 var timerManager *TimerManager
 
-func InitTimerManager() {
-	timerManager = NewTimerManager()
+func Init(handler TimeoutHandler) {
+	timerManager = NewTimerManager(handler)
 }
 
 // 管理单个对局的超时自动出牌
@@ -25,12 +29,14 @@ type BattleTimer struct {
 
 // TimerManager 管理所有对局的超时
 type TimerManager struct {
-	timers map[int64]*BattleTimer
+	timers  map[int64]*BattleTimer
+	handler TimeoutHandler
 }
 
-func NewTimerManager() *TimerManager {
+func NewTimerManager(handler TimeoutHandler) *TimerManager {
 	return &TimerManager{
-		timers: make(map[int64]*BattleTimer),
+		timers:  make(map[int64]*BattleTimer),
+		handler: handler,
 	}
 }
 
@@ -52,8 +58,8 @@ func (tm *TimerManager) StartBattleTimer(battleID int64, battle *logic.Battle, s
 	}
 	tm.timers[battleID] = bt
 
-	bt.startTimer(battle.Hand1.UID)
-	bt.startTimer(battle.Hand2.UID)
+	bt.startTimer(battle.Hand1.UID, tm.handler)
+	bt.startTimer(battle.Hand2.UID, tm.handler)
 	go bt.loop()
 }
 
@@ -81,41 +87,19 @@ func (tm *TimerManager) StopPlayerTimer(battleID int64, uid int64) {
 	}
 }
 
-func (bt *BattleTimer) startTimer(uid int64) {
+func (bt *BattleTimer) startTimer(uid int64, handler TimeoutHandler) {
 	bt.timers[uid] = time.AfterFunc(time.Duration(logic.RoundTimeout)*time.Second, func() {
-		bt.onTimeout(uid)
+		bt.onTimeout(uid, handler)
 	})
 }
 
-func (bt *BattleTimer) onTimeout(uid int64) {
-	//检查对局是否已结束
+func (bt *BattleTimer) onTimeout(uid int64, handler TimeoutHandler) {
+	// 检查对局是否已结束
 	if bt.battle.State == logic.BattleFinished {
 		return
 	}
 
-	logger.Log.Infof("对局 %d 玩家 %d 超时，自动出牌", bt.battleID, uid)
-
-	roundResult, gameOver, s1, s2, winner, err := bt.battle.AutoPlay(uid)
-	if err != nil {
-		logger.Log.Errorf("自动出牌失败: %v", err)
-		return
-	}
-
-	// 通知双方
-	if roundResult {
-		notifyRoundResult(bt.srv, bt.battle, bt.battleID, s1, s2, gameOver, winner)
-	}
-
-	if gameOver {
-		notifyBattleEnd(bt.srv, bt.battle, bt.battleID, s1, s2, winner)
-		battleManager.Remove(bt.battleID)
-		StopBattleTimerGlobal(bt.battleID)
-		return
-	}
-
-	// 小局还没完 → 重启双方计时器（下一个子回合）
-	StopBattleTimerGlobal(bt.battleID)
-	StartBattleTimerGlobal(bt.battleID, bt.battle, bt.srv)
+	handler.OnTimeout(bt.battleID, bt.battle, uid, bt.srv)
 }
 
 // loop 监听停止信号
@@ -126,7 +110,8 @@ func (bt *BattleTimer) loop() {
 	}
 }
 
-// 便捷函数
+// ====== 全局便捷函数 ======
+
 func StartBattleTimerGlobal(battleID int64, battle *logic.Battle, srv *network.Server) {
 	if timerManager != nil {
 		timerManager.StartBattleTimer(battleID, battle, srv)

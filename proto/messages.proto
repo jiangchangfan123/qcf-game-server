@@ -149,3 +149,44 @@ message BattleEnd {
     int32 score1    = 3;
     int32 score2    = 4;
 }
+
+// ====== 排行榜 ======
+
+message LeaderboardRequest {
+    int32 top = 1; // 前N名（默认10）
+}
+
+message LeaderboardResponse {
+    repeated LeaderboardItem items = 1;
+}
+
+message LeaderboardItem {
+    int32 rank   = 1;
+    int64 uid    = 2;
+    string nickname = 3;
+    int64 win    = 4;
+    int64 total  = 5;
+    float win_rate = 6;
+}
+
+// 战绩查询
+message BattleRecordRequest {
+    int64 uid = 1;
+    int32 limit = 2; // 查询最近N条
+}
+
+message BattleRecordResponse {
+    repeated BattleRecordItem records = 1;
+}
+
+message BattleRecordItem {
+    int64 id       = 1;
+    int64 player1  = 2;
+    int64 player2  = 3;
+    int64 winner   = 4;
+    int32 score1   = 5;
+    int32 score2   = 6;
+    int32 round    = 7;
+    int32 duration = 8;
+    int64 created_at = 9;
+}
