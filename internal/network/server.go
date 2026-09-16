@@ -151,3 +151,19 @@ func (s *Server) heartbeatChecker(conn *Conn) {
 		}
 	}
 }
+
+func (s *Server) GetConnByUID(uid int64) *Conn {
+	s.connMu.RLock()
+	defer s.connMu.RUnlock()
+
+	for _, conn := range s.connMap {
+		if conn.GetSession() != nil {
+			sess, ok := conn.GetSession().(*session.Session)
+			if ok && sess.UID == uid {
+				return conn
+			}
+		}
+	}
+
+	return nil
+}

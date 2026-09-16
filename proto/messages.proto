@@ -84,6 +84,30 @@ message MatchResponse {
     string msg = 2;
 }
 
+// 取消匹配
+message MatchCancelRequest {}
+message MatchCancelResponse {
+    int32 code = 1; // 0=已取消
+    string msg = 2;
+}
+
+// 创建房间
+message BattleCreateRoomRequest {}
+message BattleCreateRoomResponse {
+    int32 code  = 1; // 0=成功
+    string msg  = 2;
+    string room_code = 3;
+}
+
+// 加入房间
+message BattleJoinRoomRequest {
+    string room_code = 1;
+}
+message BattleJoinRoomResponse {
+    int32 code = 1; // 0=成功, 1=房间不存在
+    string msg = 2;
+}
+
 // 对局开始（服务端推送）
 message BattleStart {
     int64 battle_id  = 1;  // 对局ID

@@ -799,6 +799,289 @@ func (x *MatchResponse) GetMsg() string {
 	return ""
 }
 
+// 取消匹配
+type MatchCancelRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MatchCancelRequest) Reset() {
+	*x = MatchCancelRequest{}
+	mi := &file_proto_messages_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MatchCancelRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MatchCancelRequest) ProtoMessage() {}
+
+func (x *MatchCancelRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_messages_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MatchCancelRequest.ProtoReflect.Descriptor instead.
+func (*MatchCancelRequest) Descriptor() ([]byte, []int) {
+	return file_proto_messages_proto_rawDescGZIP(), []int{15}
+}
+
+type MatchCancelResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"` // 0=已取消
+	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MatchCancelResponse) Reset() {
+	*x = MatchCancelResponse{}
+	mi := &file_proto_messages_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MatchCancelResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MatchCancelResponse) ProtoMessage() {}
+
+func (x *MatchCancelResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_messages_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MatchCancelResponse.ProtoReflect.Descriptor instead.
+func (*MatchCancelResponse) Descriptor() ([]byte, []int) {
+	return file_proto_messages_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *MatchCancelResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *MatchCancelResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+// 创建房间
+type BattleCreateRoomRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BattleCreateRoomRequest) Reset() {
+	*x = BattleCreateRoomRequest{}
+	mi := &file_proto_messages_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BattleCreateRoomRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BattleCreateRoomRequest) ProtoMessage() {}
+
+func (x *BattleCreateRoomRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_messages_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BattleCreateRoomRequest.ProtoReflect.Descriptor instead.
+func (*BattleCreateRoomRequest) Descriptor() ([]byte, []int) {
+	return file_proto_messages_proto_rawDescGZIP(), []int{17}
+}
+
+type BattleCreateRoomResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"` // 0=成功
+	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	RoomCode      string                 `protobuf:"bytes,3,opt,name=room_code,json=roomCode,proto3" json:"room_code,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BattleCreateRoomResponse) Reset() {
+	*x = BattleCreateRoomResponse{}
+	mi := &file_proto_messages_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BattleCreateRoomResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BattleCreateRoomResponse) ProtoMessage() {}
+
+func (x *BattleCreateRoomResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_messages_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BattleCreateRoomResponse.ProtoReflect.Descriptor instead.
+func (*BattleCreateRoomResponse) Descriptor() ([]byte, []int) {
+	return file_proto_messages_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *BattleCreateRoomResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *BattleCreateRoomResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+func (x *BattleCreateRoomResponse) GetRoomCode() string {
+	if x != nil {
+		return x.RoomCode
+	}
+	return ""
+}
+
+// 加入房间
+type BattleJoinRoomRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RoomCode      string                 `protobuf:"bytes,1,opt,name=room_code,json=roomCode,proto3" json:"room_code,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BattleJoinRoomRequest) Reset() {
+	*x = BattleJoinRoomRequest{}
+	mi := &file_proto_messages_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BattleJoinRoomRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BattleJoinRoomRequest) ProtoMessage() {}
+
+func (x *BattleJoinRoomRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_messages_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BattleJoinRoomRequest.ProtoReflect.Descriptor instead.
+func (*BattleJoinRoomRequest) Descriptor() ([]byte, []int) {
+	return file_proto_messages_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *BattleJoinRoomRequest) GetRoomCode() string {
+	if x != nil {
+		return x.RoomCode
+	}
+	return ""
+}
+
+type BattleJoinRoomResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"` // 0=成功, 1=房间不存在
+	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BattleJoinRoomResponse) Reset() {
+	*x = BattleJoinRoomResponse{}
+	mi := &file_proto_messages_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BattleJoinRoomResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BattleJoinRoomResponse) ProtoMessage() {}
+
+func (x *BattleJoinRoomResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_messages_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BattleJoinRoomResponse.ProtoReflect.Descriptor instead.
+func (*BattleJoinRoomResponse) Descriptor() ([]byte, []int) {
+	return file_proto_messages_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *BattleJoinRoomResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *BattleJoinRoomResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
 // 对局开始（服务端推送）
 type BattleStart struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -812,7 +1095,7 @@ type BattleStart struct {
 
 func (x *BattleStart) Reset() {
 	*x = BattleStart{}
-	mi := &file_proto_messages_proto_msgTypes[15]
+	mi := &file_proto_messages_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -824,7 +1107,7 @@ func (x *BattleStart) String() string {
 func (*BattleStart) ProtoMessage() {}
 
 func (x *BattleStart) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_messages_proto_msgTypes[15]
+	mi := &file_proto_messages_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -837,7 +1120,7 @@ func (x *BattleStart) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BattleStart.ProtoReflect.Descriptor instead.
 func (*BattleStart) Descriptor() ([]byte, []int) {
-	return file_proto_messages_proto_rawDescGZIP(), []int{15}
+	return file_proto_messages_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *BattleStart) GetBattleId() int64 {
@@ -879,7 +1162,7 @@ type PlayCardRequest struct {
 
 func (x *PlayCardRequest) Reset() {
 	*x = PlayCardRequest{}
-	mi := &file_proto_messages_proto_msgTypes[16]
+	mi := &file_proto_messages_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -891,7 +1174,7 @@ func (x *PlayCardRequest) String() string {
 func (*PlayCardRequest) ProtoMessage() {}
 
 func (x *PlayCardRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_messages_proto_msgTypes[16]
+	mi := &file_proto_messages_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -904,7 +1187,7 @@ func (x *PlayCardRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlayCardRequest.ProtoReflect.Descriptor instead.
 func (*PlayCardRequest) Descriptor() ([]byte, []int) {
-	return file_proto_messages_proto_rawDescGZIP(), []int{16}
+	return file_proto_messages_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *PlayCardRequest) GetBattleId() int64 {
@@ -932,7 +1215,7 @@ type PlayCardResponse struct {
 
 func (x *PlayCardResponse) Reset() {
 	*x = PlayCardResponse{}
-	mi := &file_proto_messages_proto_msgTypes[17]
+	mi := &file_proto_messages_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -944,7 +1227,7 @@ func (x *PlayCardResponse) String() string {
 func (*PlayCardResponse) ProtoMessage() {}
 
 func (x *PlayCardResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_messages_proto_msgTypes[17]
+	mi := &file_proto_messages_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -957,7 +1240,7 @@ func (x *PlayCardResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlayCardResponse.ProtoReflect.Descriptor instead.
 func (*PlayCardResponse) Descriptor() ([]byte, []int) {
-	return file_proto_messages_proto_rawDescGZIP(), []int{17}
+	return file_proto_messages_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *PlayCardResponse) GetCode() int32 {
@@ -993,7 +1276,7 @@ type RoundResult struct {
 
 func (x *RoundResult) Reset() {
 	*x = RoundResult{}
-	mi := &file_proto_messages_proto_msgTypes[18]
+	mi := &file_proto_messages_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1005,7 +1288,7 @@ func (x *RoundResult) String() string {
 func (*RoundResult) ProtoMessage() {}
 
 func (x *RoundResult) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_messages_proto_msgTypes[18]
+	mi := &file_proto_messages_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1018,7 +1301,7 @@ func (x *RoundResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RoundResult.ProtoReflect.Descriptor instead.
 func (*RoundResult) Descriptor() ([]byte, []int) {
-	return file_proto_messages_proto_rawDescGZIP(), []int{18}
+	return file_proto_messages_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *RoundResult) GetBattleId() int64 {
@@ -1104,7 +1387,7 @@ type BattleEnd struct {
 
 func (x *BattleEnd) Reset() {
 	*x = BattleEnd{}
-	mi := &file_proto_messages_proto_msgTypes[19]
+	mi := &file_proto_messages_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1116,7 +1399,7 @@ func (x *BattleEnd) String() string {
 func (*BattleEnd) ProtoMessage() {}
 
 func (x *BattleEnd) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_messages_proto_msgTypes[19]
+	mi := &file_proto_messages_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1129,7 +1412,7 @@ func (x *BattleEnd) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BattleEnd.ProtoReflect.Descriptor instead.
 func (*BattleEnd) Descriptor() ([]byte, []int) {
-	return file_proto_messages_proto_rawDescGZIP(), []int{19}
+	return file_proto_messages_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *BattleEnd) GetBattleId() int64 {
@@ -1208,6 +1491,20 @@ const file_proto_messages_proto_rawDesc = "" +
 	"\fMatchRequest\"5\n" +
 	"\rMatchResponse\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\"\x14\n" +
+	"\x12MatchCancelRequest\";\n" +
+	"\x13MatchCancelResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\"\x19\n" +
+	"\x17BattleCreateRoomRequest\"]\n" +
+	"\x18BattleCreateRoomResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x1b\n" +
+	"\troom_code\x18\x03 \x01(\tR\broomCode\"4\n" +
+	"\x15BattleJoinRoomRequest\x12\x1b\n" +
+	"\troom_code\x18\x01 \x01(\tR\broomCode\">\n" +
+	"\x16BattleJoinRoomResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\"x\n" +
 	"\vBattleStart\x12\x1b\n" +
 	"\tbattle_id\x18\x01 \x01(\x03R\bbattleId\x12\x1a\n" +
@@ -1251,28 +1548,34 @@ func file_proto_messages_proto_rawDescGZIP() []byte {
 	return file_proto_messages_proto_rawDescData
 }
 
-var file_proto_messages_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
+var file_proto_messages_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
 var file_proto_messages_proto_goTypes = []any{
-	(*Heartbeat)(nil),         // 0: pb.Heartbeat
-	(*LoginRequest)(nil),      // 1: pb.LoginRequest
-	(*LoginResponse)(nil),     // 2: pb.LoginResponse
-	(*AuthRequest)(nil),       // 3: pb.AuthRequest
-	(*AuthResponse)(nil),      // 4: pb.AuthResponse
-	(*ChatMessage)(nil),       // 5: pb.ChatMessage
-	(*JoinRoomRequest)(nil),   // 6: pb.JoinRoomRequest
-	(*JoinRoomResponse)(nil),  // 7: pb.JoinRoomResponse
-	(*LeaveRoomRequest)(nil),  // 8: pb.LeaveRoomRequest
-	(*LeaveRoomResponse)(nil), // 9: pb.LeaveRoomResponse
-	(*SystemNotify)(nil),      // 10: pb.SystemNotify
-	(*RegisterRequest)(nil),   // 11: pb.RegisterRequest
-	(*RegisterResponse)(nil),  // 12: pb.RegisterResponse
-	(*MatchRequest)(nil),      // 13: pb.MatchRequest
-	(*MatchResponse)(nil),     // 14: pb.MatchResponse
-	(*BattleStart)(nil),       // 15: pb.BattleStart
-	(*PlayCardRequest)(nil),   // 16: pb.PlayCardRequest
-	(*PlayCardResponse)(nil),  // 17: pb.PlayCardResponse
-	(*RoundResult)(nil),       // 18: pb.RoundResult
-	(*BattleEnd)(nil),         // 19: pb.BattleEnd
+	(*Heartbeat)(nil),                // 0: pb.Heartbeat
+	(*LoginRequest)(nil),             // 1: pb.LoginRequest
+	(*LoginResponse)(nil),            // 2: pb.LoginResponse
+	(*AuthRequest)(nil),              // 3: pb.AuthRequest
+	(*AuthResponse)(nil),             // 4: pb.AuthResponse
+	(*ChatMessage)(nil),              // 5: pb.ChatMessage
+	(*JoinRoomRequest)(nil),          // 6: pb.JoinRoomRequest
+	(*JoinRoomResponse)(nil),         // 7: pb.JoinRoomResponse
+	(*LeaveRoomRequest)(nil),         // 8: pb.LeaveRoomRequest
+	(*LeaveRoomResponse)(nil),        // 9: pb.LeaveRoomResponse
+	(*SystemNotify)(nil),             // 10: pb.SystemNotify
+	(*RegisterRequest)(nil),          // 11: pb.RegisterRequest
+	(*RegisterResponse)(nil),         // 12: pb.RegisterResponse
+	(*MatchRequest)(nil),             // 13: pb.MatchRequest
+	(*MatchResponse)(nil),            // 14: pb.MatchResponse
+	(*MatchCancelRequest)(nil),       // 15: pb.MatchCancelRequest
+	(*MatchCancelResponse)(nil),      // 16: pb.MatchCancelResponse
+	(*BattleCreateRoomRequest)(nil),  // 17: pb.BattleCreateRoomRequest
+	(*BattleCreateRoomResponse)(nil), // 18: pb.BattleCreateRoomResponse
+	(*BattleJoinRoomRequest)(nil),    // 19: pb.BattleJoinRoomRequest
+	(*BattleJoinRoomResponse)(nil),   // 20: pb.BattleJoinRoomResponse
+	(*BattleStart)(nil),              // 21: pb.BattleStart
+	(*PlayCardRequest)(nil),          // 22: pb.PlayCardRequest
+	(*PlayCardResponse)(nil),         // 23: pb.PlayCardResponse
+	(*RoundResult)(nil),              // 24: pb.RoundResult
+	(*BattleEnd)(nil),                // 25: pb.BattleEnd
 }
 var file_proto_messages_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
@@ -1293,7 +1596,7 @@ func file_proto_messages_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_messages_proto_rawDesc), len(file_proto_messages_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   20,
+			NumMessages:   26,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
