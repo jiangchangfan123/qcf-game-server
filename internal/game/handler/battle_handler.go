@@ -8,6 +8,7 @@ import (
 	"GameServer/internal/pkg/logger"
 	"GameServer/internal/session"
 	"GameServer/models"
+	"context"
 	"time"
 
 	"google.golang.org/protobuf/proto"
@@ -222,7 +223,9 @@ func HandlePlayCard(srv *network.Server) network.HandlerFunc {
 
 		// 对局结束，清理
 		if gameOver {
-			notifyBattleEnd(srv, battle, req.BattleId, s1, s2, winner)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			notifyBattleEnd(ctx, srv, battle, req.BattleId, s1, s2, winner)
 			battleManager.Remove(req.BattleId)
 		}
 	}
@@ -233,6 +236,10 @@ type BattleTimeoutHandler struct{}
 
 func (h *BattleTimeoutHandler) OnTimeout(battleID int64, battle *logic.Battle, uid int64, srv *network.Server) {
 	logger.Log.Infof("对局 %d 玩家 %d 超时，自动出牌", battleID, uid)
+
+	// 创建带超时的 context
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
 	roundResult, gameOver, s1, s2, winner, err := battle.AutoPlay(uid)
 	if err != nil {
@@ -246,7 +253,7 @@ func (h *BattleTimeoutHandler) OnTimeout(battleID int64, battle *logic.Battle, u
 	}
 
 	if gameOver {
-		notifyBattleEnd(srv, battle, battleID, s1, s2, winner)
+		notifyBattleEnd(ctx, srv, battle, battleID, s1, s2, winner)
 		battleManager.Remove(battleID)
 		timer.StopBattleTimerGlobal(battleID)
 		return
@@ -343,7 +350,7 @@ func notifyRoundResult(srv *network.Server, battle *logic.Battle, battleID int64
 }
 
 // notifyBattleEnd 通知双方对局结束
-func notifyBattleEnd(srv *network.Server, battle *logic.Battle, battleID int64, s1, s2 int32, winner int64) {
+func notifyBattleEnd(ctx context.Context, srv *network.Server, battle *logic.Battle, battleID int64, s1, s2 int32, winner int64) {
 	p1Conn := srv.GetConnByUID(battle.Hand1.UID)
 	p2Conn := srv.GetConnByUID(battle.Hand2.UID)
 
@@ -373,5 +380,19 @@ func notifyBattleEnd(srv *network.Server, battle *logic.Battle, battleID int64, 
 	}
 	if err := models.SaveRecord(record); err != nil {
 		logger.Log.Errorf("保存对局记录失败: %v", err)
+	}
+
+	//更新redis排行榜
+	if winner != 0 {
+		if err := logic.UpdateLeaderboard(ctx, winner, false); err != nil {
+			logger.Log.Errorf("更新排行榜失败: %v", err)
+		}
+	}
+	// 更新双方总场次
+	if err := logic.UpdatePlayerTotal(ctx, battle.Hand1.UID); err != nil {
+		logger.Log.Errorf("更新玩家%d总场次失败: %v", battle.Hand1.UID, err)
+	}
+	if err := logic.UpdatePlayerTotal(ctx, battle.Hand2.UID); err != nil {
+		logger.Log.Errorf("更新玩家%d总场次失败: %v", battle.Hand2.UID, err)
 	}
 }

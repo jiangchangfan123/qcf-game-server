@@ -6,12 +6,6 @@ import (
 	"time"
 )
 
-// PlayerInfo 匹配队列中的玩家信息
-type PlayerInfo struct {
-	UID      int64
-	Nickname string
-}
-
 // MatchManager 匹配管理器
 type MatchManager struct {
 	queueMu sync.Mutex    // 保护 queue
@@ -23,12 +17,6 @@ type MatchManager struct {
 	bm *BattleManager
 }
 
-// RoomInfo 房间信息
-type RoomInfo struct {
-	Code    string
-	Creator *PlayerInfo
-}
-
 func NewMatchManager(bm *BattleManager) *MatchManager {
 	return &MatchManager{
 		queue: make([]*PlayerInfo, 0),
@@ -38,13 +26,6 @@ func NewMatchManager(bm *BattleManager) *MatchManager {
 }
 
 // ====== 随机匹配 ======
-
-// MatchResult 匹配结果
-type MatchResult struct {
-	BattleID int64
-	Player1  *PlayerInfo
-	Player2  *PlayerInfo
-}
 
 func (m *MatchManager) JoinQueue(p *PlayerInfo) (*MatchResult, bool) {
 	m.queueMu.Lock()

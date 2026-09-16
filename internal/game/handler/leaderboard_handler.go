@@ -1,10 +1,13 @@
 package handler
 
 import (
+	"GameServer/internal/game/logic"
 	"GameServer/internal/network"
 	"GameServer/internal/pb"
 	"GameServer/internal/pkg/logger"
 	"GameServer/models"
+	"context"
+	"time"
 
 	"google.golang.org/protobuf/proto"
 )
@@ -33,11 +36,25 @@ func HandleLeaderboard() network.HandlerFunc {
 			top = 10
 		}
 
-		entries, err := models.GetLeaderboard(top)
+		// 创建带超时的 context
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+
+		// 改用 Redis 查询
+		entries, err := logic.GetLeaderboardFromRedis(ctx, top)
 		if err != nil {
 			logger.Log.Errorf("查询排行榜失败: %v", err)
-			conn.WriteProtoPacket(MsgIDLeaderboard, &pb.LeaderboardResponse{})
-			return
+			// 降级到 MySQL
+			mysqlEntries, _ := models.GetLeaderboard(top)
+			entries = make([]logic.LeaderboardEntry, 0, len(mysqlEntries))
+			for _, e := range mysqlEntries {
+				entries = append(entries, logic.LeaderboardEntry{
+					UID:     e.UID,
+					Win:     e.Win,
+					Total:   e.Total,
+					WinRate: e.WinRate,
+				})
+			}
 		}
 
 		items := make([]*pb.LeaderboardItem, 0, len(entries))

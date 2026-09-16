@@ -1,13 +1,5 @@
 package logic
 
-type CardType int32
-
-const (
-	CardCommoner CardType = 0 // 平民
-	CardKing     CardType = 1 // 国王
-	CardSlave    CardType = 2 // 奴隶
-)
-
 // DefaultHand 初始手牌：3平民 + 1国王 + 1奴隶
 func DefaultHand() []CardType {
 	return []CardType{
