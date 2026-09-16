@@ -42,6 +42,7 @@ func RegisterBattleHandlers(router *network.Router, srv *network.Server) {
 func InitBattleSystem() {
 	battleManager = logic.NewBattleManager()
 	matchManager = logic.NewMatchManager(battleManager)
+	InitTimerManager() // 新增初始化计时器
 }
 
 func HandleMatch(srv *network.Server) network.HandlerFunc {
@@ -208,6 +209,9 @@ func HandlePlayCard(srv *network.Server) network.HandlerFunc {
 			Code: 0, Msg: "出牌成功",
 		})
 
+		// 停掉出牌者的计时器（对方的还在跑）
+		StopPlayerTimerGlobal(req.BattleId, player.UID)
+
 		// 如果有回合结果，通知双方
 		if roundResult {
 			notifyRoundResult(srv, battle, req.BattleId, s1, s2, gameOver, winner)
@@ -244,6 +248,11 @@ func notifyBattleStart(srv *network.Server, result *logic.MatchResult) {
 			Nickname: result.Player1.Nickname,
 			Round:    1,
 		})
+	}
+
+	battle := battleManager.Get(result.BattleID)
+	if battle != nil {
+		StartBattleTimerGlobal(result.BattleID, battle, srv)
 	}
 }
 

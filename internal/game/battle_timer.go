@@ -1,0 +1,146 @@
+package game
+
+import (
+	"GameServer/internal/game/logic"
+	"GameServer/internal/network"
+	"GameServer/internal/pkg/logger"
+	"time"
+)
+
+// 全局 TimerManager 实例
+var timerManager *TimerManager
+
+func InitTimerManager() {
+	timerManager = NewTimerManager()
+}
+
+// 管理单个对局的超时自动出牌
+type BattleTimer struct {
+	battleID int64
+	battle   *logic.Battle
+	srv      *network.Server
+	timers   map[int64]*time.Timer
+	stopCh   chan struct{}
+}
+
+// TimerManager 管理所有对局的超时
+type TimerManager struct {
+	timers map[int64]*BattleTimer
+}
+
+func NewTimerManager() *TimerManager {
+	return &TimerManager{
+		timers: make(map[int64]*BattleTimer),
+	}
+}
+
+func (tm *TimerManager) StartBattleTimer(battleID int64, battle *logic.Battle, srv *network.Server) {
+	bt, ok := tm.timers[battleID]
+	if ok {
+		close(bt.stopCh)
+		for _, t := range bt.timers {
+			t.Stop()
+		}
+	}
+
+	bt = &BattleTimer{
+		battleID: battleID,
+		battle:   battle,
+		srv:      srv,
+		timers:   make(map[int64]*time.Timer),
+		stopCh:   make(chan struct{}),
+	}
+	tm.timers[battleID] = bt
+
+	bt.startTimer(battle.Hand1.UID)
+	bt.startTimer(battle.Hand2.UID)
+	go bt.loop()
+}
+
+// StopBattleTimer 对局结束时停止所有计时器
+func (tm *TimerManager) StopBattleTimer(battleID int64) {
+	bt, ok := tm.timers[battleID]
+	if !ok {
+		return
+	}
+	close(bt.stopCh)
+	for _, t := range bt.timers {
+		t.Stop()
+	}
+	delete(tm.timers, battleID)
+}
+
+// StopPlayerTimer 玩家出牌后停掉其计时器
+func (tm *TimerManager) StopPlayerTimer(battleID int64, uid int64) {
+	bt, ok := tm.timers[battleID]
+	if !ok {
+		return
+	}
+	if t, ok := bt.timers[uid]; ok {
+		t.Stop()
+	}
+}
+
+func (bt *BattleTimer) startTimer(uid int64) {
+	bt.timers[uid] = time.AfterFunc(time.Duration(logic.RoundTimeout)*time.Second, func() {
+		bt.onTimeout(uid)
+	})
+}
+
+func (bt *BattleTimer) onTimeout(uid int64) {
+	//检查对局是否已结束
+	if bt.battle.State == logic.BattleFinished {
+		return
+	}
+
+	logger.Log.Infof("对局 %d 玩家 %d 超时，自动出牌", bt.battleID, uid)
+
+	roundResult, gameOver, s1, s2, winner, err := bt.battle.AutoPlay(uid)
+	if err != nil {
+		logger.Log.Errorf("自动出牌失败: %v", err)
+		return
+	}
+
+	// 通知双方
+	if roundResult {
+		notifyRoundResult(bt.srv, bt.battle, bt.battleID, s1, s2, gameOver, winner)
+	}
+
+	if gameOver {
+		notifyBattleEnd(bt.srv, bt.battle, bt.battleID, s1, s2, winner)
+		battleManager.Remove(bt.battleID)
+		StopBattleTimerGlobal(bt.battleID)
+		return
+	}
+
+	// 小局还没完 → 重启双方计时器（下一个子回合）
+	StopBattleTimerGlobal(bt.battleID)
+	StartBattleTimerGlobal(bt.battleID, bt.battle, bt.srv)
+}
+
+// loop 监听停止信号
+func (bt *BattleTimer) loop() {
+	<-bt.stopCh
+	for _, t := range bt.timers {
+		t.Stop()
+	}
+}
+
+// 便捷函数
+func StartBattleTimerGlobal(battleID int64, battle *logic.Battle, srv *network.Server) {
+	if timerManager != nil {
+		timerManager.StartBattleTimer(battleID, battle, srv)
+	}
+}
+
+func StopBattleTimerGlobal(battleID int64) {
+	if timerManager != nil {
+		timerManager.StopBattleTimer(battleID)
+	}
+}
+
+func StopPlayerTimerGlobal(battleID int64, uid int64) {
+	if timerManager != nil {
+		timerManager.StopPlayerTimer(battleID, uid)
+	}
+}
