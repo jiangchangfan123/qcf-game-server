@@ -2,6 +2,7 @@ package models
 
 import (
 	"GameServer/internal/db"
+	"context"
 	"time"
 )
 
@@ -40,14 +41,14 @@ func (GameRecord) TableName() string {
 }
 
 // 保存对局记录
-func SaveRecord(record *GameRecord) error {
-	return db.DB.Create(record).Error
+func SaveRecord(ctx context.Context, record *GameRecord) error {
+	return db.DB.WithContext(ctx).Create(record).Error
 }
 
 // 查询某玩家的最近对局记录
-func GetPlayerRecords(uid int64, limit int) ([]GameRecord, error) {
+func GetPlayerRecords(ctx context.Context, uid int64, limit int) ([]GameRecord, error) {
 	var records []GameRecord
-	err := db.DB.Where("player1 = ? OR player2 = ?", uid, uid).
+	err := db.DB.WithContext(ctx).Where("player1 = ? OR player2 = ?", uid, uid).
 		Order("created_at DESC").
 		Limit(limit).
 		Find(&records).Error
@@ -55,10 +56,10 @@ func GetPlayerRecords(uid int64, limit int) ([]GameRecord, error) {
 }
 
 // 查询玩家战绩统计
-func GetPlayerStats(uid int64) (*PlayerStats, error) {
+func GetPlayerStats(ctx context.Context, uid int64) (*PlayerStats, error) {
 	stats := &PlayerStats{}
 
-	err := db.DB.Model(&GameRecord{}).
+	err := db.DB.WithContext(ctx).Model(&GameRecord{}).
 		Select(`COUNT(*) as total,
 			SUM(CASE WHEN winner = ? THEN 1 ELSE 0 END) as win,
 			SUM(CASE WHEN winner != ? AND winner != 0 THEN 1 ELSE 0 END) as lose,
@@ -77,11 +78,11 @@ func GetPlayerStats(uid int64) (*PlayerStats, error) {
 }
 
 // 获取排行榜
-func GetLeaderboard(limit int) ([]LeaderboardEntry, error) {
+func GetLeaderboard(ctx context.Context, limit int) ([]LeaderboardEntry, error) {
 	var entries []LeaderboardEntry
 
 	//先统计每个玩家的胜场和总场次
-	rows, err := db.DB.Raw(`
+	rows, err := db.DB.WithContext(ctx).Raw(`
 		SELECT 
             CASE WHEN player1 = winner THEN player1 ELSE player2 END as uid,
             COUNT(*) as total,

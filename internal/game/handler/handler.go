@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"GameServer/internal/network"
 	"GameServer/internal/pb"
 	"GameServer/internal/pkg/jwt"
@@ -68,7 +69,10 @@ func HandleLogin(sm *session.SessionManager) network.HandlerFunc {
 			conn.RemoteAddr().String(), req.Username)
 
 		// =========新增：查数据库============
-		user, err := models.FindByUsername(req.Username)
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+
+		user, err := models.FindByUsername(ctx, req.Username)
 		if err != nil {
 			logger.Log.Error("查询用户出错: %v", err)
 			resp := &pb.LoginResponse{Code: 500, Msg: "服务器内部错误"}
@@ -264,7 +268,10 @@ func HandleRegister() network.HandlerFunc {
 		}
 
 		//检查用户名是否已存在
-		exists, err := models.ExistByUsername(req.Username)
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+
+		exists, err := models.ExistByUsername(ctx, req.Username)
 		if err != nil {
 			logger.Log.Errorf("查询用户出错: %v", err)
 			conn.WriteProtoPacket(MsgIDRegister, &pb.RegisterResponse{
@@ -291,7 +298,7 @@ func HandleRegister() network.HandlerFunc {
 			Nickname: nickname,
 		}
 
-		if err = user.CreateUser(); err != nil {
+		if err = user.CreateUser(ctx); err != nil {
 			logger.Log.Errorf("创建用户失败: %v", err)
 			conn.WriteProtoPacket(MsgIDRegister, &pb.RegisterResponse{
 				Code: 500, Msg: "注册失败，服务器错误",

@@ -2,6 +2,7 @@ package models
 
 import (
 	"GameServer/internal/db"
+	"context"
 	"time"
 
 	"gorm.io/gorm"
@@ -19,22 +20,22 @@ func (User) TableName() string {
 	return "users"
 }
 
-func FindByUsername(username string) (*User, error) {
+func FindByUsername(ctx context.Context, username string) (*User, error) {
 	var user User
-	err := db.DB.Where("username = ?", username).First(&user).Error
+	err := db.DB.WithContext(ctx).Where("username = ?", username).First(&user).Error
 	if err != nil {
 		return nil, err
 	}
 	return &user, nil
 }
 
-func (u *User) CreateUser() error {
-	return db.DB.Create(u).Error
+func (u *User) CreateUser(ctx context.Context) error {
+	return db.DB.WithContext(ctx).Create(u).Error
 }
 
-func ExistByUsername(username string) (bool, error) {
+func ExistByUsername(ctx context.Context, username string) (bool, error) {
 	var user User
-	err := db.DB.Where("username = ?", username).First(&user).Error
+	err := db.DB.WithContext(ctx).Where("username = ?", username).First(&user).Error
 	if err == gorm.ErrRecordNotFound {
 		return false, nil
 	}

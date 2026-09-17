@@ -378,7 +378,7 @@ func notifyBattleEnd(ctx context.Context, srv *network.Server, battle *logic.Bat
 		Round:    battle.Round,
 		Duration: int32(time.Since(battle.RoundStart).Seconds()),
 	}
-	if err := models.SaveRecord(record); err != nil {
+	if err := models.SaveRecord(ctx, record); err != nil {
 		logger.Log.Errorf("保存对局记录失败: %v", err)
 	}
 

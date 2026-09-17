@@ -45,7 +45,7 @@ func HandleLeaderboard() network.HandlerFunc {
 		if err != nil {
 			logger.Log.Errorf("查询排行榜失败: %v", err)
 			// 降级到 MySQL
-			mysqlEntries, _ := models.GetLeaderboard(top)
+			mysqlEntries, _ := models.GetLeaderboard(ctx, top)
 			entries = make([]logic.LeaderboardEntry, 0, len(mysqlEntries))
 			for _, e := range mysqlEntries {
 				entries = append(entries, logic.LeaderboardEntry{
@@ -87,7 +87,10 @@ func HandleBattleRecords() network.HandlerFunc {
 			limit = 10
 		}
 
-		records, err := models.GetPlayerRecords(req.Uid, limit)
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+
+		records, err := models.GetPlayerRecords(ctx, req.Uid, limit)
 		if err != nil {
 			logger.Log.Errorf("查询战绩失败: %v", err)
 			conn.WriteProtoPacket(MsgIDBattleRecords, &pb.BattleRecordResponse{})

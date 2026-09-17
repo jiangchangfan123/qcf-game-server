@@ -33,6 +33,13 @@ func main() {
 	}
 	defer db.Close()
 
+	//初始化Redis
+	if err := db.InitRedis(); err != nil {
+		logger.Log.Fatalf("Failed to connect to Redis: %v", err)
+	}
+	defer db.CloseRedis()
+	logger.Log.Info("Redis connected.")
+
 	netServer := network.NewServer()
 
 	// 注册所有游戏消息处理函数，传入 SessionManager
