@@ -24,6 +24,9 @@ func FindByUsername(ctx context.Context, username string) (*User, error) {
 	var user User
 	err := db.DB.WithContext(ctx).Where("username = ?", username).First(&user).Error
 	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return &user, nil

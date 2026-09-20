@@ -1,13 +1,13 @@
 package handler
 
 import (
-	"context"
 	"GameServer/internal/network"
 	"GameServer/internal/pb"
 	"GameServer/internal/pkg/jwt"
 	"GameServer/internal/pkg/logger"
 	"GameServer/internal/session"
 	"GameServer/models"
+	"context"
 	"time"
 
 	"google.golang.org/protobuf/proto"
@@ -257,6 +257,7 @@ func HandleRegister() network.HandlerFunc {
 			conn.WriteProtoPacket(MsgIDRegister, &pb.RegisterResponse{
 				Code: 500, Msg: "服务器内部出错",
 			})
+			return
 		}
 
 		//参数校验

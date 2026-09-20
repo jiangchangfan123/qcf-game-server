@@ -15,6 +15,7 @@ type Server struct {
 	Listener       net.Listener
 	Router         *Router
 	SessionManager *session.SessionManager
+	MatchManager   interface{ CancelQueue(uid int64) bool }
 	connMap        map[uint64]*Conn
 	connMu         sync.RWMutex
 	activeConns    int64 //当前活跃连接数
@@ -99,6 +100,14 @@ func (s *Server) handleConnection(rawConn net.Conn) {
 		s.connMu.Lock()
 		delete(s.connMap, conn.ID)
 		s.connMu.Unlock()
+
+		//断线时从匹配队列移除
+		if conn.GetSession() != nil {
+			sess := conn.GetSession().(*session.Session)
+			if s.MatchManager != nil {
+				s.MatchManager.CancelQueue(sess.UID)
+			}
+		}
 
 		//连接断开时，清理session
 		s.SessionManager.Remove(conn.ID)

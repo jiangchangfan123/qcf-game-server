@@ -35,6 +35,7 @@ const (
 // RegisterBattleHandlers 注册对战相关的 Handler
 func RegisterBattleHandlers(router *network.Router, srv *network.Server) {
 	InitBattleSystem()
+	srv.MatchManager = matchManager
 
 	router.Register(MsgIDMatch, HandleMatch(srv))
 	router.Register(MsgIDMatchCancel, HandleMatchCancel())
@@ -219,6 +220,11 @@ func HandlePlayCard(srv *network.Server) network.HandlerFunc {
 		// 如果有回合结果，通知双方
 		if roundResult {
 			notifyRoundResult(srv, battle, req.BattleId, s1, s2, gameOver, winner)
+
+			if !gameOver {
+				timer.StopBattleTimerGlobal(req.BattleId)
+				timer.StartBattleTimerGlobal(req.BattleId, battle, srv)
+			}
 		}
 
 		// 对局结束，清理
