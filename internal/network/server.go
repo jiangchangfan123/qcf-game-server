@@ -2,6 +2,7 @@ package network
 
 import (
 	"GameServer/internal/config"
+	"GameServer/internal/pb"
 	"GameServer/internal/pkg/logger"
 	"GameServer/internal/session"
 	"context"
@@ -36,6 +37,19 @@ func NewServer() *Server {
 
 func (s *Server) Shutdown() {
 	logger.Log.Info("开始优雅关闭服务器...")
+
+	//关闭前通知所有在线玩家
+	s.connMu.RLock()
+	for _, conn := range s.connMap {
+		if conn.GetSession() != nil {
+			conn.WriteProtoPacket(6, &pb.SystemNotify{Content: "服务器正在维护，即将断开连接"})
+		}
+	}
+	s.connMu.RUnlock()
+
+	// 给客户端一点时间收到通知
+	time.Sleep(500 * time.Millisecond)
+
 	s.cancel()
 
 	if s.Listener != nil {
