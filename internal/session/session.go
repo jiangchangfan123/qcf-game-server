@@ -84,6 +84,18 @@ func (m *SessionManager) RoomOnlineCount(roomID int64) int {
 	return count
 }
 
+// GetByUID 通过 UID 查找 Session
+func (m *SessionManager) GetByUID(uid int64) (*Session, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	for _, s := range m.sessions {
+		if s.UID == uid {
+			return s, true
+		}
+	}
+	return nil, false
+}
+
 // 将会话session存到缓存到redis
 func (s *Session) SaveToRedis() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)

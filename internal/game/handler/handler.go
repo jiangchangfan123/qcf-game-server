@@ -23,6 +23,8 @@ const (
 	MsgIDSysNotify = 6 //系统通知
 	MsgIDRegister  = 7 //注册请求
 	MsgIDAuth      = 8 //认证请求
+
+	MsgIDBattleState = 19 // 对局状态（重连推送）
 )
 
 // RegisterHandlers 将所有游戏消息处理函数注册到路由上
@@ -34,7 +36,7 @@ func RegisterHandlers(router *network.Router, sm *session.SessionManager, srv *n
 	router.RegisterRaw(MsgIDHeartbeat, HandleHeartbeat(sm))
 	router.RegisterRaw(MsgIDLogin, HandleLogin(sm))
 	router.RegisterRaw(MsgIDRegister, HandleRegister())
-	router.RegisterRaw(MsgIDAuth, HandleAuth(sm))
+	router.RegisterRaw(MsgIDAuth, HandleAuth(sm, srv))
 
 	// 需要认证的消息（自动走 AuthMiddleware）
 	router.Register(MsgIDChat, HandleChat(sm, srv))
@@ -342,7 +344,7 @@ func notifyLeave(sm *session.SessionManager, srv *network.Server, roomID int64, 
 }
 
 // HandleAuth 处理认证请求（客户端携带token认证）
-func HandleAuth(sm *session.SessionManager) network.HandlerFunc {
+func HandleAuth(sm *session.SessionManager, srv *network.Server) network.HandlerFunc {
 	return func(conn *network.Conn, pkt *network.Packet) {
 		req := &pb.AuthRequest{}
 		if err := proto.Unmarshal(pkt.Data, req); err != nil {
@@ -380,6 +382,7 @@ func HandleAuth(sm *session.SessionManager) network.HandlerFunc {
 
 		sm.Add(s)
 		conn.SetSession(s)
+		restoreBattleState(srv, sm, claims.UserID, conn)
 
 		// 设置连接属性
 		conn.SetAttribute("user_id", claims.UserID)

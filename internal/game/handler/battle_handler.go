@@ -402,3 +402,51 @@ func notifyBattleEnd(ctx context.Context, srv *network.Server, battle *logic.Bat
 		logger.Log.Errorf("更新玩家%d总场次失败: %v", battle.Hand2.UID, err)
 	}
 }
+
+// restoreBattleState 玩家重连时，恢复对局状态
+func restoreBattleState(srv *network.Server, sm *session.SessionManager, uid int64, conn *network.Conn) {
+	battle := battleManager.GetByPlayer(uid)
+	if battle == nil {
+		return
+	}
+
+	var opponentUID int64
+	if battle.Hand1.UID == uid {
+		opponentUID = battle.Hand2.UID
+	} else {
+		opponentUID = battle.Hand1.UID
+	}
+
+	opponentNick := ""
+	if opSess, ok := sm.GetByUID(opponentUID); ok {
+		opponentNick = opSess.Nickname
+	}
+
+	hand := battle.GetHand(uid)
+	int32Hand := make([]int32, len(hand))
+	for i, c := range hand {
+		int32Hand[i] = int32(c)
+	}
+
+	isMyTurn := (battle.Move1 == nil && battle.Hand1.UID == uid) ||
+		(battle.Move2 == nil && battle.Hand2.UID == uid)
+
+	conn.WriteProtoPacket(MsgIDBattleStart, &pb.BattleStart{
+		BattleId: battle.ID,
+		Opponent: opponentUID,
+		Nickname: opponentNick,
+		Round:    battle.Round,
+	})
+
+	conn.WriteProtoPacket(MsgIDBattleState, &pb.BattleState{
+		BattleId: battle.ID,
+		Opponent: opponentUID,
+		Nickname: opponentNick,
+		Round:    battle.Round,
+		SubRound: battle.SubRound,
+		Score1:   battle.Score1,
+		Score2:   battle.Score2,
+		Hand:     int32Hand,
+		MyTurn:   isMyTurn,
+	})
+}

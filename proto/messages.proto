@@ -116,6 +116,20 @@ message BattleStart {
     int32  round     = 4;  // 当前小局（1~7）
 }
 
+// 对局状态（重连时推送）
+message BattleState {
+    int64 battle_id      = 1;
+    int64 opponent       = 2;
+    string nickname      = 3;
+    int32 round          = 4;   // 当前小局
+    int32 sub_round      = 5;   // 小局内第几张
+    int32 score1         = 6;   // 玩家1大分
+    int32 score2         = 7;   // 玩家2大分
+    repeated int32 hand  = 8;   // 当前手牌列表
+    bool my_turn         = 9;   // 是否轮到我出牌
+}
+
+
 // 出牌请求
 message PlayCardRequest {
     int64 battle_id = 1;
