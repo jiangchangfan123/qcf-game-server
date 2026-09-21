@@ -25,6 +25,10 @@ const (
 	// 房间信息 (Hash)
 	// 格式: room:{roomCode}
 	KeyRoomPrefix = "room:%s"
+
+	// 玩家 Session 缓存 (Hash: field=uid/nickname/room_id/login_time)
+	// 格式: session:uid:{uid}
+	KeyPlayerSessionPrefix = "session:uid:%d"
 )
 
 // ============================================
@@ -44,4 +48,9 @@ func SessionKey(connID string) string {
 // RoomKey 房间 key
 func RoomKey(roomCode string) string {
 	return fmt.Sprintf(KeyRoomPrefix, roomCode)
+}
+
+// PlayerSessionKey 玩家 Session 缓存 key
+func PlayerSessionKey(uid int64) string {
+	return fmt.Sprintf(KeyPlayerSessionPrefix, uid)
 }

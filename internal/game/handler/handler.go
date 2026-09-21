@@ -57,6 +57,7 @@ func HandleHeartbeat(sm *session.SessionManager) network.HandlerFunc {
 	}
 }
 
+// HandleLogin 处理登录请求
 func HandleLogin(sm *session.SessionManager) network.HandlerFunc {
 	return func(conn *network.Conn, pkt *network.Packet) {
 		//反序列化
@@ -113,6 +114,7 @@ func HandleLogin(sm *session.SessionManager) network.HandlerFunc {
 
 		sm.Add(s)
 		conn.SetSession(s)
+		s.SaveToRedis() // 保存到 Redis
 		logger.Log.Infof("玩家 %s 登录成功, 在线人数: %d", req.Username, sm.OnlineCount())
 		conn.SetAttribute("token", token)
 
@@ -198,6 +200,7 @@ func HandleJoinRoom(sm *session.SessionManager, srv *network.Server) network.Han
 
 		// 切换房间
 		player.RoomID = newRoomID
+		player.SaveToRedis()
 
 		logger.Log.Infof("玩家 %s 从房间[%d]切换到房间[%d]", player.Nickname, oldRoomID, newRoomID)
 
@@ -236,6 +239,7 @@ func HandleLeaveRoom(sm *session.SessionManager, srv *network.Server) network.Ha
 
 		oldRoomID := player.RoomID
 		player.RoomID = 0 // 回到大厅
+		player.SaveToRedis()
 
 		logger.Log.Infof("玩家 %s 离开了房间[%d]", player.Nickname, oldRoomID)
 
@@ -249,6 +253,7 @@ func HandleLeaveRoom(sm *session.SessionManager, srv *network.Server) network.Ha
 	}
 }
 
+// HandleRegister 处理注册请求
 func HandleRegister() network.HandlerFunc {
 	return func(conn *network.Conn, pkt *network.Packet) {
 		req := &pb.RegisterRequest{}
@@ -361,13 +366,17 @@ func HandleAuth(sm *session.SessionManager) network.HandlerFunc {
 		}
 
 		// 创建或更新session
-		s := &session.Session{
-			ConnID:    conn.ID,
-			UID:       claims.UserID,
-			Nickname:  claims.Nickname,
-			LoginTime: time.Now(),
-			RoomID:    1,
+		s := session.LoadPlayerSessionFromRedis(claims.UserID)
+		if s == nil {
+			s = &session.Session{
+				ConnID:    conn.ID,
+				UID:       claims.UserID,
+				Nickname:  claims.Nickname,
+				LoginTime: time.Now(),
+				RoomID:    1,
+			}
 		}
+		s.ConnID = conn.ID
 
 		sm.Add(s)
 		conn.SetSession(s)

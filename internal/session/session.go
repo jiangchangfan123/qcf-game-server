@@ -1,6 +1,10 @@
 package session
 
 import (
+	"GameServer/internal/db"
+	"GameServer/internal/game/logic"
+	"context"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -78,4 +82,46 @@ func (m *SessionManager) RoomOnlineCount(roomID int64) int {
 		}
 	}
 	return count
+}
+
+// 将会话session存到缓存到redis
+func (s *Session) SaveToRedis() {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	key := logic.PlayerSessionKey(s.UID)
+	fields := map[string]interface{}{
+		"uid":        strconv.FormatInt(s.UID, 10),
+		"nickname":   s.Nickname,
+		"room_id":    strconv.FormatInt(s.RoomID, 10),
+		"login_time": s.LoginTime.Unix(),
+	}
+	if err := db.RDB.HSet(ctx, key, fields).Err(); err != nil {
+		// 缓存失败不影响主流程，降级即可
+		return
+	}
+	db.RDB.Expire(ctx, key, 24*time.Hour)
+}
+
+// LoadFromRedis 从 Redis 加载 Session，返回 nil 表示缓存未命中
+func LoadPlayerSessionFromRedis(uid int64) *Session {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	key := logic.PlayerSessionKey(uid)
+	vals, err := db.RDB.HGetAll(ctx, key).Result()
+	if err != nil || len(vals) == 0 {
+		return nil
+	}
+
+	uidVal, _ := strconv.ParseInt(vals["uid"], 10, 64)
+	roomID, _ := strconv.ParseInt(vals["room_id"], 10, 64)
+	loginTime, _ := strconv.ParseInt(vals["login_time"], 10, 64)
+
+	return &Session{
+		UID:       uidVal,
+		Nickname:  vals["nickname"],
+		RoomID:    roomID,
+		LoginTime: time.Unix(loginTime, 0),
+	}
 }
