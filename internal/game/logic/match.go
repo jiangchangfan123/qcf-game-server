@@ -14,7 +14,8 @@ type MatchManager struct {
 	roomMu sync.Mutex           // 保护 rooms
 	rooms  map[string]*RoomInfo // 房间码 → 房间信息
 
-	bm *BattleManager
+	bm  *BattleManager
+	rng *rand.Rand // 共享随机数生成器，由 roomMu 保护
 }
 
 func NewMatchManager(bm *BattleManager) *MatchManager {
@@ -22,6 +23,7 @@ func NewMatchManager(bm *BattleManager) *MatchManager {
 		queue: make([]*PlayerInfo, 0),
 		rooms: make(map[string]*RoomInfo),
 		bm:    bm,
+		rng:   rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
 
@@ -119,13 +121,12 @@ func (m *MatchManager) JoinRoom(code string, joiner *PlayerInfo) (*MatchResult, 
 	}, true
 }
 
-// 生成六位随机房间码
+// 生成六位随机房间码（调用方须持有 roomMu）
 func (m *MatchManager) generateRoomCode() string {
 	digits := "0123456789"
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	code := make([]byte, 6)
 	for i := range code {
-		code[i] = digits[r.Intn(len(digits))]
+		code[i] = digits[m.rng.Intn(len(digits))]
 	}
 	return string(code)
 }

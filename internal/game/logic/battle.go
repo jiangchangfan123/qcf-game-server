@@ -54,6 +54,7 @@ func NewBattle(player1, player2 int64, battleID int64) *Battle {
 		Hand1:      &PlayerHand{UID: player1, Cards: DefaultHand()},
 		Hand2:      &PlayerHand{UID: player2, Cards: DefaultHand()},
 		Round:      1,
+		SubRound:   1,
 		State:      BattleWaiting,
 		RoundStart: time.Now(),
 	}
