@@ -193,7 +193,7 @@ func HandlePlayCard(srv *network.Server) network.HandlerFunc {
 		}
 
 		card := logic.CardType(req.CardType)
-		roundResult, gameOver, s1, s2, winner, err := battle.PlayCard(player.UID, card)
+		_, gameOver, s1, s2, winner, err := battle.PlayCard(player.UID, card)
 
 		if err != nil {
 			code := int32(3)
@@ -217,15 +217,8 @@ func HandlePlayCard(srv *network.Server) network.HandlerFunc {
 		// 停掉出牌者的计时器（对方的还在跑）
 		timer.StopPlayerTimerGlobal(req.BattleId, player.UID)
 
-		// 如果有回合结果，通知双方
-		if roundResult {
-			notifyRoundResult(srv, battle, req.BattleId, s1, s2, gameOver, winner)
-
-			if !gameOver {
-				timer.StopBattleTimerGlobal(req.BattleId)
-				timer.StartBattleTimerGlobal(req.BattleId, battle, srv)
-			}
-		}
+		// 双方都出了，通知结果（包括平局）
+		notifyRoundResult(srv, battle, req.BattleId, s1, s2, gameOver, winner)
 
 		// 对局结束，清理
 		if gameOver {
@@ -233,6 +226,10 @@ func HandlePlayCard(srv *network.Server) network.HandlerFunc {
 			defer cancel()
 			notifyBattleEnd(ctx, srv, battle, req.BattleId, s1, s2, winner)
 			battleManager.Remove(req.BattleId)
+		} else {
+			// 还没结束，重启下一轮计时器
+			timer.StopBattleTimerGlobal(req.BattleId)
+			timer.StartBattleTimerGlobal(req.BattleId, battle, srv)
 		}
 	}
 }
@@ -322,7 +319,7 @@ func notifyRoundResult(srv *network.Server, battle *logic.Battle, battleID int64
 			SubRound:  battle.SubRound,
 			MyCard:    move1,
 			OpCard:    move2,
-			Result:    int32(logic.IsWin(*battle.Move1, *battle.Move2)),
+			Result:    int32(logic.IsWin(logic.CardType(move1), logic.CardType(move2))),
 			Score1:    s1,
 			Score2:    s2,
 			RoundOver: gameOver || battle.SubRound == 1,
@@ -332,7 +329,7 @@ func notifyRoundResult(srv *network.Server, battle *logic.Battle, battleID int64
 
 	// 给玩家2的视角（结果反转）
 	if p2Conn != nil {
-		result := logic.IsWin(*battle.Move1, *battle.Move2)
+		result := logic.IsWin(logic.CardType(move1), logic.CardType(move2))
 		reverseResult := int32(0)
 		if result == 1 {
 			reverseResult = -1
