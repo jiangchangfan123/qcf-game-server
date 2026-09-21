@@ -3,6 +3,7 @@ package timer
 import (
 	"GameServer/internal/game/logic"
 	"GameServer/internal/network"
+	"sync"
 	"time"
 )
 
@@ -29,6 +30,7 @@ type BattleTimer struct {
 
 // TimerManager 管理所有对局的超时
 type TimerManager struct {
+	mu      sync.Mutex
 	timers  map[int64]*BattleTimer
 	handler TimeoutHandler
 }
@@ -41,6 +43,9 @@ func NewTimerManager(handler TimeoutHandler) *TimerManager {
 }
 
 func (tm *TimerManager) StartBattleTimer(battleID int64, battle *logic.Battle, srv *network.Server) {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+
 	bt, ok := tm.timers[battleID]
 	if ok {
 		close(bt.stopCh)
@@ -65,6 +70,9 @@ func (tm *TimerManager) StartBattleTimer(battleID int64, battle *logic.Battle, s
 
 // StopBattleTimer 对局结束时停止所有计时器
 func (tm *TimerManager) StopBattleTimer(battleID int64) {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+
 	bt, ok := tm.timers[battleID]
 	if !ok {
 		return
@@ -78,6 +86,9 @@ func (tm *TimerManager) StopBattleTimer(battleID int64) {
 
 // StopPlayerTimer 玩家出牌后停掉其计时器
 func (tm *TimerManager) StopPlayerTimer(battleID int64, uid int64) {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+
 	bt, ok := tm.timers[battleID]
 	if !ok {
 		return

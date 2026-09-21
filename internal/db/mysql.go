@@ -4,6 +4,7 @@ import (
 	"GameServer/internal/config"
 	"GameServer/internal/pkg/logger"
 	"fmt"
+	"time"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -25,6 +26,7 @@ func Init() error {
 	sqlDB, _ := DB.DB()
 	sqlDB.SetMaxOpenConns(cfg.MaxOpenConns)
 	sqlDB.SetMaxIdleConns(cfg.MaxIdleConns)
+	sqlDB.SetConnMaxLifetime(time.Duration(cfg.ConnMaxLifetime) * time.Second)
 
 	logger.Log.Info("MySQL 连接成功")
 	return nil
