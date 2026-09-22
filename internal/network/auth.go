@@ -10,7 +10,7 @@ import (
 
 func NewAuthMiddleware(sm *session.SessionManager) Middleware {
 	return func(next HandlerFunc) HandlerFunc {
-		return func(conn *Conn, pkt *Packet) {
+		return func(conn Conn, pkt *Packet) {
 			//从连接获取session，如果已存在则直接放行
 			if conn.GetSession() != nil {
 				next(conn, pkt)
@@ -50,7 +50,7 @@ func NewAuthMiddleware(sm *session.SessionManager) Middleware {
 			}
 
 			s := &session.Session{
-				ConnID:    conn.ID,
+				ConnID:    conn.ID(),
 				UID:       claims.UserID,
 				Nickname:  claims.Nickname,
 				LoginTime: time.Now(),

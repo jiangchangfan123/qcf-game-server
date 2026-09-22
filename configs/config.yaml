@@ -1,4 +1,5 @@
 port: ":8080"
+ws_port: ":8081"
 
 heartbeat:
   timeout: 30   #超过30秒没收到心跳自动断开

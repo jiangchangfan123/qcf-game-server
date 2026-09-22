@@ -52,7 +52,7 @@ func RegisterHandlers(router *network.Router, sm *session.SessionManager, srv *n
 
 // HandleHeartbeat 处理心跳包 —— 客户端定期发来证明还活着
 func HandleHeartbeat(sm *session.SessionManager) network.HandlerFunc {
-	return func(conn *network.Conn, pkt *network.Packet) {
+	return func(conn network.Conn, pkt *network.Packet) {
 		logger.Log.Infof("收到心跳 from %s", conn.RemoteAddr().String())
 		conn.UpdateHeartbeat() //更新最后心跳时间
 		conn.WriteProtoPacket(MsgIDHeartbeat, &pb.Heartbeat{})
@@ -61,7 +61,7 @@ func HandleHeartbeat(sm *session.SessionManager) network.HandlerFunc {
 
 // HandleLogin 处理登录请求
 func HandleLogin(sm *session.SessionManager) network.HandlerFunc {
-	return func(conn *network.Conn, pkt *network.Packet) {
+	return func(conn network.Conn, pkt *network.Packet) {
 		//反序列化
 		req := &pb.LoginRequest{}
 		if err := proto.Unmarshal(pkt.Data, req); err != nil {
@@ -107,7 +107,7 @@ func HandleLogin(sm *session.SessionManager) network.HandlerFunc {
 
 		//4. 创建Session并绑定到连接
 		s := &session.Session{
-			ConnID:    conn.ID,
+			ConnID:    conn.ID(),
 			UID:       user.ID,
 			Nickname:  user.Nickname,
 			LoginTime: time.Now(),
@@ -133,7 +133,7 @@ func HandleLogin(sm *session.SessionManager) network.HandlerFunc {
 
 // HandleChat 处理聊天消息（暂时简单回显）
 func HandleChat(sm *session.SessionManager, srv *network.Server) network.HandlerFunc {
-	return func(conn *network.Conn, pkt *network.Packet) {
+	return func(conn network.Conn, pkt *network.Packet) {
 		msg := &pb.ChatMessage{}
 		if err := proto.Unmarshal(pkt.Data, msg); err != nil {
 			logger.Log.Errorf("聊天反序列化失败: %v", err)
@@ -164,7 +164,7 @@ func HandleChat(sm *session.SessionManager, srv *network.Server) network.Handler
 
 // HandleJoinRoom 玩家加入/切换房间
 func HandleJoinRoom(sm *session.SessionManager, srv *network.Server) network.HandlerFunc {
-	return func(conn *network.Conn, pkt *network.Packet) {
+	return func(conn network.Conn, pkt *network.Packet) {
 		req := &pb.JoinRoomRequest{}
 		if err := proto.Unmarshal(pkt.Data, req); err != nil {
 			logger.Log.Errorf("加入房间反序列化失败: %v", err)
@@ -222,7 +222,7 @@ func HandleJoinRoom(sm *session.SessionManager, srv *network.Server) network.Han
 
 // HandleLeaveRoom 玩家离开当前房间（回到大厅，RoomID 设为 0）
 func HandleLeaveRoom(sm *session.SessionManager, srv *network.Server) network.HandlerFunc {
-	return func(conn *network.Conn, pkt *network.Packet) {
+	return func(conn network.Conn, pkt *network.Packet) {
 		s := conn.GetSession()
 		if s == nil {
 			conn.WriteProtoPacket(MsgIDLeaveRoom, &pb.LeaveRoomResponse{
@@ -257,7 +257,7 @@ func HandleLeaveRoom(sm *session.SessionManager, srv *network.Server) network.Ha
 
 // HandleRegister 处理注册请求
 func HandleRegister() network.HandlerFunc {
-	return func(conn *network.Conn, pkt *network.Packet) {
+	return func(conn network.Conn, pkt *network.Packet) {
 		req := &pb.RegisterRequest{}
 		if err := proto.Unmarshal(pkt.Data, req); err != nil {
 			logger.Log.Errorf("注册反序列化失败: %v", err)
@@ -345,7 +345,7 @@ func notifyLeave(sm *session.SessionManager, srv *network.Server, roomID int64, 
 
 // HandleAuth 处理认证请求（客户端携带token认证）
 func HandleAuth(sm *session.SessionManager, srv *network.Server) network.HandlerFunc {
-	return func(conn *network.Conn, pkt *network.Packet) {
+	return func(conn network.Conn, pkt *network.Packet) {
 		req := &pb.AuthRequest{}
 		if err := proto.Unmarshal(pkt.Data, req); err != nil {
 			logger.Log.Errorf("认证请求反序列化失败: %v", err)
@@ -371,14 +371,14 @@ func HandleAuth(sm *session.SessionManager, srv *network.Server) network.Handler
 		s := session.LoadPlayerSessionFromRedis(claims.UserID)
 		if s == nil {
 			s = &session.Session{
-				ConnID:    conn.ID,
+				ConnID:    conn.ID(),
 				UID:       claims.UserID,
 				Nickname:  claims.Nickname,
 				LoginTime: time.Now(),
 				RoomID:    1,
 			}
 		}
-		s.ConnID = conn.ID
+		s.ConnID = conn.ID()
 
 		sm.Add(s)
 		conn.SetSession(s)

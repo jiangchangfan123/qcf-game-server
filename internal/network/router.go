@@ -2,7 +2,7 @@ package network
 
 import "GameServer/internal/pkg/logger"
 
-type HandlerFunc func(conn *Conn, pkt *Packet)
+type HandlerFunc func(conn Conn, pkt *Packet)
 type Middleware func(HandlerFunc) HandlerFunc
 
 type Router struct {
@@ -42,7 +42,7 @@ func (r *Router) RegisterRaw(MsgID uint16, handler HandlerFunc) {
 }
 
 // Handle 根据消息ID查找并执行对应的处理函数
-func (r *Router) Handle(conn *Conn, pkt *Packet) {
+func (r *Router) Handle(conn Conn, pkt *Packet) {
 	handler, ok := r.handlers[pkt.MsgID]
 	if !ok {
 		logger.Log.Warnf("No handler found for msgID: %d", pkt.MsgID)

@@ -7,19 +7,26 @@ import (
 	"GameServer/internal/session"
 	"context"
 	"net"
+	"net/http"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
+
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool { return true },
+}
 
 type Server struct {
 	Listener       net.Listener
 	Router         *Router
 	SessionManager *session.SessionManager
 	MatchManager   interface{ CancelQueue(uid int64) bool }
-	connMap        map[uint64]*Conn
+	connMap        map[uint64]Conn
 	connMu         sync.RWMutex
-	activeConns    int64 //当前活跃连接数
+	activeConns    int64
 	ctx            context.Context
 	cancel         context.CancelFunc
 }
@@ -29,7 +36,7 @@ func NewServer() *Server {
 	return &Server{
 		Router:         NewRouter(),
 		SessionManager: session.NewSessionManager(),
-		connMap:        make(map[uint64]*Conn),
+		connMap:        make(map[uint64]Conn),
 		ctx:            ctx,
 		cancel:         cancel,
 	}
@@ -38,7 +45,6 @@ func NewServer() *Server {
 func (s *Server) Shutdown() {
 	logger.Log.Info("开始优雅关闭服务器...")
 
-	//关闭前通知所有在线玩家
 	s.connMu.RLock()
 	for _, conn := range s.connMap {
 		if conn.GetSession() != nil {
@@ -47,7 +53,6 @@ func (s *Server) Shutdown() {
 	}
 	s.connMu.RUnlock()
 
-	// 给客户端一点时间收到通知
 	time.Sleep(500 * time.Millisecond)
 
 	s.cancel()
@@ -56,7 +61,6 @@ func (s *Server) Shutdown() {
 		s.Listener.Close()
 	}
 
-	// 等待所有连接自然关闭
 	for active := atomic.LoadInt64(&s.activeConns); active > 0; active = atomic.LoadInt64(&s.activeConns) {
 		logger.Log.Infof("等待 %d 个连接关闭...", active)
 		time.Sleep(1 * time.Second)
@@ -70,52 +74,71 @@ func (s *Server) RegisterHandler(msgID uint16, handler HandlerFunc) {
 }
 
 func (s *Server) Start() {
+	// TCP 监听
+	go s.startTCP()
+
+	// WebSocket 监听
+	go s.startWebSocket()
+}
+
+func (s *Server) startTCP() {
 	listener, err := net.Listen("tcp", config.C.Port)
 	if err != nil {
-		logger.Log.Fatalf("Failed to start server: %v", err)
+		logger.Log.Fatalf("Failed to start TCP server: %v", err)
 	}
 	s.Listener = listener
-	logger.Log.Infof("Server started. listening on %s", config.C.Port)
+	logger.Log.Infof("TCP server listening on %s", config.C.Port)
 
 	for {
-		conn, err := listener.Accept()
+		rawConn, err := listener.Accept()
 		if err != nil {
-			// 如果是关闭导致的错误，直接退出循环
 			select {
 			case <-s.ctx.Done():
-				logger.Log.Info("监听器已关闭，停止接受新连接")
+				logger.Log.Info("TCP监听器已关闭，停止接受新连接")
 				return
 			default:
-				logger.Log.Errorf("Accept error: %v", err)
+				logger.Log.Errorf("TCP Accept error: %v", err)
 				continue
 			}
 		}
 
+		conn := NewTCPConn(rawConn)
 		go s.handleConnection(conn)
 	}
 }
 
-func (s *Server) handleConnection(rawConn net.Conn) {
-	conn := NewConn(rawConn)
+func (s *Server) startWebSocket() {
+	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		ws, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			logger.Log.Errorf("WebSocket upgrade error: %v", err)
+			return
+		}
+		conn := NewWSConn(ws)
+		s.handleConnection(conn)
+	})
 
-	//加入连接表
+	logger.Log.Infof("WebSocket server listening on %s", config.C.WSPort)
+	if err := http.ListenAndServe(config.C.WSPort, nil); err != nil {
+		logger.Log.Errorf("WebSocket server error: %v", err)
+	}
+}
+
+func (s *Server) handleConnection(conn Conn) {
 	s.connMu.Lock()
-	s.connMap[conn.ID] = conn
+	s.connMap[conn.ID()] = conn
 	s.connMu.Unlock()
 
-	atomic.AddInt64(&s.activeConns, 1)        // 新增：活跃连接数+1
-	defer atomic.AddInt64(&s.activeConns, -1) // 新增：连接关闭时-1
+	atomic.AddInt64(&s.activeConns, 1)
+	defer atomic.AddInt64(&s.activeConns, -1)
 
-	//启动心跳检测
 	go s.heartbeatChecker(conn)
 
 	defer func() {
-		//从连接表中移除
 		s.connMu.Lock()
-		delete(s.connMap, conn.ID)
+		delete(s.connMap, conn.ID())
 		s.connMu.Unlock()
 
-		//断线时从匹配队列移除
 		if conn.GetSession() != nil {
 			sess := conn.GetSession().(*session.Session)
 			if s.MatchManager != nil {
@@ -123,8 +146,7 @@ func (s *Server) handleConnection(rawConn net.Conn) {
 			}
 		}
 
-		//连接断开时，清理session
-		s.SessionManager.Remove(conn.ID)
+		s.SessionManager.Remove(conn.ID())
 		logger.Log.Infof("Connection closed: %s, online: %d",
 			conn.RemoteAddr().String(), s.SessionManager.OnlineCount())
 		conn.Close()
@@ -145,14 +167,14 @@ func (s *Server) handleConnection(rawConn net.Conn) {
 	}
 }
 
-func (s *Server) GetConn(id uint64) (*Conn, bool) {
+func (s *Server) GetConn(id uint64) (Conn, bool) {
 	s.connMu.RLock()
 	defer s.connMu.RUnlock()
 	c, ok := s.connMap[id]
 	return c, ok
 }
 
-func (s *Server) heartbeatChecker(conn *Conn) {
+func (s *Server) heartbeatChecker(conn Conn) {
 	timeout := time.Duration(config.C.Heartbeat.Timeout) * time.Second
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
@@ -161,13 +183,13 @@ func (s *Server) heartbeatChecker(conn *Conn) {
 		select {
 		case <-s.ctx.Done():
 			logger.Log.Infof("服务器关闭，断开连接: %s (conn=%d)",
-				conn.RemoteAddr().String(), conn.ID)
-			conn.Close() // 关闭连接 → ReadPacket 返回 error → handleConnection 退出
+				conn.RemoteAddr().String(), conn.ID())
+			conn.Close()
 			return
 		case <-ticker.C:
-			if time.Since(conn.LastHeartbeat) > timeout {
+			if time.Since(conn.GetLastHeartbeat()) > timeout {
 				logger.Log.Warnf("心跳超时, 强制断开连接: %s (conn=%d)",
-					conn.RemoteAddr().String(), conn.ID)
+					conn.RemoteAddr().String(), conn.ID())
 				conn.Close()
 				return
 			}
@@ -175,7 +197,7 @@ func (s *Server) heartbeatChecker(conn *Conn) {
 	}
 }
 
-func (s *Server) GetConnByUID(uid int64) *Conn {
+func (s *Server) GetConnByUID(uid int64) Conn {
 	s.connMu.RLock()
 	defer s.connMu.RUnlock()
 

@@ -6,6 +6,8 @@ import (
 	"io"
 )
 
+var ErrPacketTooShort = fmt.Errorf("packet too short")
+
 const (
 	PacketHeaderLen = 6
 	MaxPacketSize   = 64 * 1024 // 限制单个包最大64kb，仿制恶意超大包

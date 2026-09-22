@@ -51,7 +51,7 @@ func InitBattleSystem() {
 }
 
 func HandleMatch(srv *network.Server) network.HandlerFunc {
-	return func(conn *network.Conn, pkt *network.Packet) {
+	return func(conn network.Conn, pkt *network.Packet) {
 		s := conn.GetSession()
 		if s == nil {
 			conn.WriteProtoPacket(MsgIDMatch, &pb.MatchResponse{
@@ -84,7 +84,7 @@ func HandleMatch(srv *network.Server) network.HandlerFunc {
 
 // 取消匹配
 func HandleMatchCancel() network.HandlerFunc {
-	return func(conn *network.Conn, pkt *network.Packet) {
+	return func(conn network.Conn, pkt *network.Packet) {
 		s := conn.GetSession()
 		if s == nil {
 			return
@@ -107,7 +107,7 @@ func HandleMatchCancel() network.HandlerFunc {
 
 // 创建房间
 func HandleBattleCreateRoom(srv *network.Server) network.HandlerFunc {
-	return func(conn *network.Conn, pkt *network.Packet) {
+	return func(conn network.Conn, pkt *network.Packet) {
 		s := conn.GetSession()
 		if s == nil {
 			conn.WriteProtoPacket(MsgIDBattleCreateRoom, &pb.BattleCreateRoomResponse{
@@ -132,7 +132,7 @@ func HandleBattleCreateRoom(srv *network.Server) network.HandlerFunc {
 
 // HandleBattleJoinRoom 加入房间
 func HandleBattleJoinRoom(srv *network.Server) network.HandlerFunc {
-	return func(conn *network.Conn, pkt *network.Packet) {
+	return func(conn network.Conn, pkt *network.Packet) {
 		req := &pb.BattleJoinRoomRequest{}
 		if err := proto.Unmarshal(pkt.Data, req); err != nil {
 			logger.Log.Errorf("加入房间反序列化失败: %v", err)
@@ -171,7 +171,7 @@ func HandleBattleJoinRoom(srv *network.Server) network.HandlerFunc {
 }
 
 func HandlePlayCard(srv *network.Server) network.HandlerFunc {
-	return func(conn *network.Conn, pkt *network.Packet) {
+	return func(conn network.Conn, pkt *network.Packet) {
 		req := &pb.PlayCardRequest{}
 		if err := proto.Unmarshal(pkt.Data, req); err != nil {
 			logger.Log.Errorf("出牌反序列化失败: %v", err)
@@ -401,7 +401,7 @@ func notifyBattleEnd(ctx context.Context, srv *network.Server, battle *logic.Bat
 }
 
 // restoreBattleState 玩家重连时，恢复对局状态
-func restoreBattleState(srv *network.Server, sm *session.SessionManager, uid int64, conn *network.Conn) {
+func restoreBattleState(srv *network.Server, sm *session.SessionManager, uid int64, conn network.Conn) {
 	battle := battleManager.GetByPlayer(uid)
 	if battle == nil {
 		return

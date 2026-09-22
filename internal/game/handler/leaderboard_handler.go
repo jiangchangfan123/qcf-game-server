@@ -24,7 +24,7 @@ func RegisterLeaderboardHandlers(router *network.Router) {
 
 // 排行榜查询
 func HandleLeaderboard() network.HandlerFunc {
-	return func(conn *network.Conn, pkt *network.Packet) {
+	return func(conn network.Conn, pkt *network.Packet) {
 		req := &pb.LeaderboardRequest{}
 		if err := proto.Unmarshal(pkt.Data, req); err != nil {
 			logger.Log.Errorf("排行榜反序列化失败: %v", err)
@@ -75,7 +75,7 @@ func HandleLeaderboard() network.HandlerFunc {
 }
 
 func HandleBattleRecords() network.HandlerFunc {
-	return func(conn *network.Conn, pkt *network.Packet) {
+	return func(conn network.Conn, pkt *network.Packet) {
 		req := &pb.BattleRecordRequest{}
 		if err := proto.Unmarshal(pkt.Data, req); err != nil {
 			logger.Log.Errorf("战绩查询反序列化失败: %v", err)
