@@ -32,3 +32,7 @@ llm:
   base_url: ""
   model: ""
   timeout: 10
+
+rabbitmq:
+  url: "amqp://guest:guest@localhost:5672/"
+

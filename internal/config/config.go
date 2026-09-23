@@ -14,6 +14,7 @@ type ServerConfig struct {
 	Redis     RedisConfig     `yaml:"redis"`
 	JWT       JWTConfig       `yaml:"jwt"`
 	LLM       LLMConfig       `yaml:"llm"`
+	RabbitMQ  RabbitMQConfig  `yaml:"rabbitmq"`
 }
 
 type HeartbeatConfig struct {
@@ -50,6 +51,10 @@ type LLMConfig struct {
 	BaseURL string `yaml:"base_url"`
 	Model   string `yaml:"model"`
 	Timeout int    `yaml:"timeout"`
+}
+
+type RabbitMQConfig struct {
+	URL string `yaml:"url"`
 }
 
 var C ServerConfig

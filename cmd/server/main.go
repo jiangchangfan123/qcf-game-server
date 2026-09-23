@@ -4,6 +4,7 @@ import (
 	"GameServer/internal/config"
 	"GameServer/internal/db"
 	"GameServer/internal/game"
+	"GameServer/internal/game/handler"
 	"GameServer/internal/network"
 	"GameServer/internal/pkg/logger"
 	"flag"
@@ -41,6 +42,15 @@ func main() {
 	logger.Log.Info("Redis connected.")
 
 	netServer := network.NewServer()
+
+	// 初始化 RabbitMQ
+	if err := db.InitRabbitMQ(); err != nil {
+		logger.Log.Fatalf("Failed to connect to RabbitMQ: %v", err)
+	}
+	defer db.CloseRabbitMQ()
+
+	// 启动异步消费者
+	handler.StartBattleEndConsumer()
 
 	// 注册所有游戏消息处理函数，传入 SessionManager
 	game.RegisterHandlers(netServer.Router, netServer.SessionManager, netServer)

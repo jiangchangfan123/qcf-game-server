@@ -7,8 +7,6 @@ import (
 	"GameServer/internal/pb"
 	"GameServer/internal/pkg/logger"
 	"GameServer/internal/session"
-	"GameServer/models"
-	"context"
 	"time"
 
 	"google.golang.org/protobuf/proto"
@@ -222,9 +220,7 @@ func HandlePlayCard(srv *network.Server) network.HandlerFunc {
 
 		// 对局结束，清理
 		if gameOver {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			notifyBattleEnd(ctx, srv, battle, req.BattleId, s1, s2, winner)
+			notifyBattleEnd(srv, battle, req.BattleId, s1, s2, winner)
 			battleManager.Remove(req.BattleId)
 		} else {
 			// 还没结束，重启下一轮计时器
@@ -240,10 +236,6 @@ type BattleTimeoutHandler struct{}
 func (h *BattleTimeoutHandler) OnTimeout(battleID int64, battle *logic.Battle, uid int64, srv *network.Server) {
 	logger.Log.Infof("对局 %d 玩家 %d 超时，自动出牌", battleID, uid)
 
-	// 创建带超时的 context
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
 	roundResult, gameOver, s1, s2, winner, err := battle.AutoPlay(uid)
 	if err != nil {
 		logger.Log.Errorf("自动出牌失败: %v", err)
@@ -256,7 +248,7 @@ func (h *BattleTimeoutHandler) OnTimeout(battleID int64, battle *logic.Battle, u
 	}
 
 	if gameOver {
-		notifyBattleEnd(ctx, srv, battle, battleID, s1, s2, winner)
+		notifyBattleEnd(srv, battle, battleID, s1, s2, winner)
 		battleManager.Remove(battleID)
 		timer.StopBattleTimerGlobal(battleID)
 		return
@@ -353,7 +345,7 @@ func notifyRoundResult(srv *network.Server, battle *logic.Battle, battleID int64
 }
 
 // notifyBattleEnd 通知双方对局结束
-func notifyBattleEnd(ctx context.Context, srv *network.Server, battle *logic.Battle, battleID int64, s1, s2 int32, winner int64) {
+func notifyBattleEnd(srv *network.Server, battle *logic.Battle, battleID int64, s1, s2 int32, winner int64) {
 	p1Conn := srv.GetConnByUID(battle.Hand1.UID)
 	p2Conn := srv.GetConnByUID(battle.Hand2.UID)
 
@@ -371,8 +363,9 @@ func notifyBattleEnd(ctx context.Context, srv *network.Server, battle *logic.Bat
 		p2Conn.WriteProtoPacket(MsgIDBattleEnd, end)
 	}
 
-	//保存对局记录
-	record := &models.GameRecord{
+	// 发布对局结束事件到队列（异步处理保存记录+更新排行榜）
+	event := &BattleEndEvent{
+		BattleID: battleID,
 		Player1:  battle.Hand1.UID,
 		Player2:  battle.Hand2.UID,
 		Winner:   winner,
@@ -381,22 +374,8 @@ func notifyBattleEnd(ctx context.Context, srv *network.Server, battle *logic.Bat
 		Round:    battle.Round,
 		Duration: int32(time.Since(battle.RoundStart).Seconds()),
 	}
-	if err := models.SaveRecord(ctx, record); err != nil {
-		logger.Log.Errorf("保存对局记录失败: %v", err)
-	}
-
-	//更新redis排行榜
-	if winner != 0 {
-		if err := logic.UpdateLeaderboard(ctx, winner, false); err != nil {
-			logger.Log.Errorf("更新排行榜失败: %v", err)
-		}
-	}
-	// 更新双方总场次
-	if err := logic.UpdatePlayerTotal(ctx, battle.Hand1.UID); err != nil {
-		logger.Log.Errorf("更新玩家%d总场次失败: %v", battle.Hand1.UID, err)
-	}
-	if err := logic.UpdatePlayerTotal(ctx, battle.Hand2.UID); err != nil {
-		logger.Log.Errorf("更新玩家%d总场次失败: %v", battle.Hand2.UID, err)
+	if err := PublishBattleEnd(event); err != nil {
+		logger.Log.Errorf("发布对局结束事件失败: %v", err)
 	}
 }
 
