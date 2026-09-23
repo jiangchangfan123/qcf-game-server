@@ -10,6 +10,7 @@ import (
 	"context"
 	"time"
 
+	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -89,7 +90,7 @@ func HandleLogin(sm *session.SessionManager) network.HandlerFunc {
 			return
 		}
 		// 密码校验（后续换成 bcrypt 哈希对比）
-		if user.Password != req.Password {
+		if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
 			logger.Log.Warnf("密码错误: %s", req.Username)
 			resp := &pb.LoginResponse{Code: 2, Msg: "密码错误"}
 			conn.WriteProtoPacket(MsgIDLogin, resp)
@@ -300,9 +301,19 @@ func HandleRegister() network.HandlerFunc {
 			nickname = req.Username
 		}
 
+		//密码加密
+		hashedPwd, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+		if err != nil {
+			logger.Log.Errorf("密码加密失败: %v", err)
+			conn.WriteProtoPacket(MsgIDRegister, &pb.RegisterResponse{
+				Code: 500, Msg: "服务器内部错误",
+			})
+			return
+		}
+
 		user := &models.User{
 			Username: req.Username,
-			Password: req.Password,
+			Password: string(hashedPwd),
 			Nickname: nickname,
 		}
 
