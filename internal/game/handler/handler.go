@@ -47,6 +47,9 @@ func RegisterHandlers(router *network.Router, sm *session.SessionManager, srv *n
 	// 对战系统
 	RegisterBattleHandlers(router, srv)
 
+	// AI 功能
+	RegisterAIHandlers(router, srv)
+
 	// 排行榜
 	RegisterLeaderboardHandlers(router)
 }

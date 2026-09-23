@@ -1929,6 +1929,224 @@ func (x *BattleRecordItem) GetCreatedAt() int64 {
 	return 0
 }
 
+// AI出牌建议
+type AIHintRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	BattleId      int64                  `protobuf:"varint,1,opt,name=battle_id,json=battleId,proto3" json:"battle_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AIHintRequest) Reset() {
+	*x = AIHintRequest{}
+	mi := &file_proto_messages_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AIHintRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AIHintRequest) ProtoMessage() {}
+
+func (x *AIHintRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_messages_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AIHintRequest.ProtoReflect.Descriptor instead.
+func (*AIHintRequest) Descriptor() ([]byte, []int) {
+	return file_proto_messages_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *AIHintRequest) GetBattleId() int64 {
+	if x != nil {
+		return x.BattleId
+	}
+	return 0
+}
+
+type AIHintResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"` // 0=成功, 1=不可用
+	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	SuggestedCard int32                  `protobuf:"varint,3,opt,name=suggested_card,json=suggestedCard,proto3" json:"suggested_card,omitempty"` // 建议出的牌 0/1/2
+	Reason        string                 `protobuf:"bytes,4,opt,name=reason,proto3" json:"reason,omitempty"`                                     // AI 的理由
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AIHintResponse) Reset() {
+	*x = AIHintResponse{}
+	mi := &file_proto_messages_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AIHintResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AIHintResponse) ProtoMessage() {}
+
+func (x *AIHintResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_messages_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AIHintResponse.ProtoReflect.Descriptor instead.
+func (*AIHintResponse) Descriptor() ([]byte, []int) {
+	return file_proto_messages_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *AIHintResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *AIHintResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+func (x *AIHintResponse) GetSuggestedCard() int32 {
+	if x != nil {
+		return x.SuggestedCard
+	}
+	return 0
+}
+
+func (x *AIHintResponse) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+// AI 对局复盘
+type AIAnalysisRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	BattleId      int64                  `protobuf:"varint,1,opt,name=battle_id,json=battleId,proto3" json:"battle_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AIAnalysisRequest) Reset() {
+	*x = AIAnalysisRequest{}
+	mi := &file_proto_messages_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AIAnalysisRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AIAnalysisRequest) ProtoMessage() {}
+
+func (x *AIAnalysisRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_messages_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AIAnalysisRequest.ProtoReflect.Descriptor instead.
+func (*AIAnalysisRequest) Descriptor() ([]byte, []int) {
+	return file_proto_messages_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *AIAnalysisRequest) GetBattleId() int64 {
+	if x != nil {
+		return x.BattleId
+	}
+	return 0
+}
+
+type AIAnalysisResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	Analysis      string                 `protobuf:"bytes,3,opt,name=analysis,proto3" json:"analysis,omitempty"` // 复盘分析文本
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AIAnalysisResponse) Reset() {
+	*x = AIAnalysisResponse{}
+	mi := &file_proto_messages_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AIAnalysisResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AIAnalysisResponse) ProtoMessage() {}
+
+func (x *AIAnalysisResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_messages_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AIAnalysisResponse.ProtoReflect.Descriptor instead.
+func (*AIAnalysisResponse) Descriptor() ([]byte, []int) {
+	return file_proto_messages_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *AIAnalysisResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *AIAnalysisResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+func (x *AIAnalysisResponse) GetAnalysis() string {
+	if x != nil {
+		return x.Analysis
+	}
+	return ""
+}
+
 var File_proto_messages_proto protoreflect.FileDescriptor
 
 const file_proto_messages_proto_rawDesc = "" +
@@ -2057,7 +2275,20 @@ const file_proto_messages_proto_rawDesc = "" +
 	"\x05round\x18\a \x01(\x05R\x05round\x12\x1a\n" +
 	"\bduration\x18\b \x01(\x05R\bduration\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\t \x01(\x03R\tcreatedAtB\x0fZ\r./internal/pbb\x06proto3"
+	"created_at\x18\t \x01(\x03R\tcreatedAt\",\n" +
+	"\rAIHintRequest\x12\x1b\n" +
+	"\tbattle_id\x18\x01 \x01(\x03R\bbattleId\"u\n" +
+	"\x0eAIHintResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x12%\n" +
+	"\x0esuggested_card\x18\x03 \x01(\x05R\rsuggestedCard\x12\x16\n" +
+	"\x06reason\x18\x04 \x01(\tR\x06reason\"0\n" +
+	"\x11AIAnalysisRequest\x12\x1b\n" +
+	"\tbattle_id\x18\x01 \x01(\x03R\bbattleId\"V\n" +
+	"\x12AIAnalysisResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x1a\n" +
+	"\banalysis\x18\x03 \x01(\tR\banalysisB\x0fZ\r./internal/pbb\x06proto3"
 
 var (
 	file_proto_messages_proto_rawDescOnce sync.Once
@@ -2071,7 +2302,7 @@ func file_proto_messages_proto_rawDescGZIP() []byte {
 	return file_proto_messages_proto_rawDescData
 }
 
-var file_proto_messages_proto_msgTypes = make([]protoimpl.MessageInfo, 33)
+var file_proto_messages_proto_msgTypes = make([]protoimpl.MessageInfo, 37)
 var file_proto_messages_proto_goTypes = []any{
 	(*Heartbeat)(nil),                // 0: pb.Heartbeat
 	(*LoginRequest)(nil),             // 1: pb.LoginRequest
@@ -2106,6 +2337,10 @@ var file_proto_messages_proto_goTypes = []any{
 	(*BattleRecordRequest)(nil),      // 30: pb.BattleRecordRequest
 	(*BattleRecordResponse)(nil),     // 31: pb.BattleRecordResponse
 	(*BattleRecordItem)(nil),         // 32: pb.BattleRecordItem
+	(*AIHintRequest)(nil),            // 33: pb.AIHintRequest
+	(*AIHintResponse)(nil),           // 34: pb.AIHintResponse
+	(*AIAnalysisRequest)(nil),        // 35: pb.AIAnalysisRequest
+	(*AIAnalysisResponse)(nil),       // 36: pb.AIAnalysisResponse
 }
 var file_proto_messages_proto_depIdxs = []int32{
 	29, // 0: pb.LeaderboardResponse.items:type_name -> pb.LeaderboardItem
@@ -2128,7 +2363,7 @@ func file_proto_messages_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_messages_proto_rawDesc), len(file_proto_messages_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   33,
+			NumMessages:   37,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

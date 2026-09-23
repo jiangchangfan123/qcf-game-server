@@ -204,3 +204,29 @@ message BattleRecordItem {
     int32 duration = 8;
     int64 created_at = 9;
 }
+
+//AI出牌建议
+message AIHintRequest {
+    int64 battle_id = 1;
+}
+
+message AIHintResponse {
+  int32 code = 1;       // 0=成功, 1=不可用
+  string msg = 2;
+  int32 suggested_card = 3;  // 建议出的牌 0/1/2
+  string reason = 4;         // AI 的理由
+}
+
+// AI 对局复盘
+message AIAnalysisRequest {
+  int64 battle_id = 1;
+}
+
+message AIAnalysisResponse {
+  int32 code = 1;
+  string msg = 2;
+  string analysis = 3;  // 复盘分析文本
+}
+
+
+

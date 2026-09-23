@@ -13,6 +13,7 @@ type ServerConfig struct {
 	Database  DatabaseConfig  `yaml:"database"`
 	Redis     RedisConfig     `yaml:"redis"`
 	JWT       JWTConfig       `yaml:"jwt"`
+	LLM       LLMConfig       `yaml:"llm"`
 }
 
 type HeartbeatConfig struct {
@@ -42,6 +43,13 @@ type RedisConfig struct {
 type JWTConfig struct {
 	Secret      string `yaml:"secret"`
 	ExpireHours int    `yaml:"expire_hours"`
+}
+
+type LLMConfig struct {
+	APIKey  string `yaml:"api_key"`
+	BaseURL string `yaml:"base_url"`
+	Model   string `yaml:"model"`
+	Timeout int    `yaml:"timeout"`
 }
 
 var C ServerConfig

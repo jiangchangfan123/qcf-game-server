@@ -48,3 +48,12 @@ type PlayerStats struct {
 	Lose  int64 `redis:"lose"`
 	Draw  int64 `redis:"draw"`
 }
+
+// RoundRecord 单轮出牌记录
+type RoundRecord struct {
+	Round    int32
+	SubRound int32
+	Card1    CardType
+	Card2    CardType
+	Result   int32 // 0=平, 1=玩家1赢, -1=玩家2赢
+}

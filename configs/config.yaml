@@ -26,3 +26,9 @@ redis:
   pool_size: 100
   min_idle_conns: 10
   pool_timeout: 5
+
+llm:
+  api_key: ""
+  base_url: ""
+  model: ""
+  timeout: 10
