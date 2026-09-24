@@ -234,6 +234,16 @@
   </div>
   <div class="ai-response" id="aiResponse"></div>
 
+  <!-- 对局聊天 -->
+  <div class="card" style="margin-top:12px;padding:12px;">
+    <h2 style="font-size:14px;margin-bottom:8px;">💬 对局聊天</h2>
+    <div id="chatMessages" style="height:100px;overflow-y:auto;border:1px solid #f0f0f0;border-radius:6px;padding:8px;font-size:13px;margin-bottom:8px;"></div>
+    <div style="display:flex;gap:8px;">
+      <input type="text" id="chatInput" placeholder="发消息给对手..." style="flex:1;padding:8px;border:1px solid #d9d9d9;border-radius:6px;font-size:13px;" onkeydown="if(event.key==='Enter')sendChat()">
+      <button class="btn btn-primary btn-sm" onclick="sendChat()">发送</button>
+    </div>
+  </div>
+
   <!-- 对局结束 -->
   <div class="game-over" id="gameOverCard" style="display:none;">
     <h2 id="gameOverTitle" style="font-size:20px;">对局结束</h2>
@@ -575,6 +585,31 @@ function doAIAnalysis() {
     WS.send(MsgID.AIAnalysis, 'pb.AIAnalysisRequest', { battle_id: state.battleId });
 }
 
+// ========== 对局聊天 ==========
+function sendChat() {
+    const input = document.getElementById('chatInput');
+    const text = input.value.trim();
+    if (!text || !state.battleId) return;
+
+    WS.send(MsgID.Chat, 'pb.ChatMessage', {
+        content: text,
+    });
+
+    // 显示自己发的消息
+    addChatMsg('我', text, true);
+    input.value = '';
+}
+
+function addChatMsg(nick, content, isMe) {
+    const container = document.getElementById('chatMessages');
+    const div = document.createElement('div');
+    div.style.marginBottom = '4px';
+    div.style.color = isMe ? '#1890ff' : '#333';
+    div.innerHTML = `<strong>${nick}:</strong> ${content}`;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+}
+
 // ========== 排行榜 ==========
 async function loadLeaderboard() {
     try {
@@ -834,6 +869,13 @@ function setupHandlers() {
     // 系统通知
     WS.on(MsgID.SysNotify, (id, msg) => {
         toast(msg.content);
+    });
+
+    // 聊天消息
+    WS.on(MsgID.Chat, (id, msg) => {
+        if (msg && msg.content) {
+            addChatMsg(msg.nickname || '对手', msg.content, false);
+        }
     });
 }
 

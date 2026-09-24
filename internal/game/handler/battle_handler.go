@@ -40,6 +40,7 @@ func RegisterBattleHandlers(router *network.Router, srv *network.Server) {
 	router.Register(MsgIDBattleCreateRoom, HandleBattleCreateRoom(srv))
 	router.Register(MsgIDBattleJoinRoom, HandleBattleJoinRoom(srv))
 	router.Register(MsgIDPlayCard, HandlePlayCard(srv))
+	router.Register(MsgIDBattleEnd, HandleBattleChat(srv))
 }
 
 func InitBattleSystem() {
@@ -443,6 +444,41 @@ func restoreBattleState(srv *network.Server, sm *session.SessionManager, uid int
 				Msg:      "房间已恢复",
 				RoomCode: room.Code,
 			})
+		}
+	}
+}
+
+func HandleBattleChat(srv *network.Server) network.HandlerFunc {
+	return func(conn network.Conn, pkt *network.Packet) {
+		msg := &pb.ChatMessage{}
+		if err := proto.Unmarshal(pkt.Data, msg); err != nil {
+			logger.Log.Errorf("解析聊天消息失败: %v", err)
+			return
+		}
+
+		s := conn.GetSession()
+		if s == nil {
+			return
+		}
+		player := s.(*session.Session)
+
+		//找对手
+		battle := battleManager.GetByPlayer(player.UID)
+		if battle == nil {
+			return
+		}
+
+		var opponentUID int64
+		if battle.Hand1.UID == player.UID {
+			opponentUID = battle.Hand2.UID
+		} else {
+			opponentUID = battle.Hand1.UID
+		}
+
+		// 发给对手
+		if opConn := srv.GetConnByUID(opponentUID); opConn != nil {
+			msg.Nickname = player.Nickname
+			opConn.WriteProtoPacket(MsgIDChat, msg)
 		}
 	}
 }
