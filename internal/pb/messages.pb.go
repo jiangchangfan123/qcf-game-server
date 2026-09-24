@@ -2147,6 +2147,51 @@ func (x *AIAnalysisResponse) GetAnalysis() string {
 	return ""
 }
 
+// 对手已出牌通知（一方出牌后通知对方）
+type OpponentPlayedNotify struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	BattleId      int64                  `protobuf:"varint,1,opt,name=battle_id,json=battleId,proto3" json:"battle_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OpponentPlayedNotify) Reset() {
+	*x = OpponentPlayedNotify{}
+	mi := &file_proto_messages_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OpponentPlayedNotify) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OpponentPlayedNotify) ProtoMessage() {}
+
+func (x *OpponentPlayedNotify) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_messages_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OpponentPlayedNotify.ProtoReflect.Descriptor instead.
+func (*OpponentPlayedNotify) Descriptor() ([]byte, []int) {
+	return file_proto_messages_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *OpponentPlayedNotify) GetBattleId() int64 {
+	if x != nil {
+		return x.BattleId
+	}
+	return 0
+}
+
 var File_proto_messages_proto protoreflect.FileDescriptor
 
 const file_proto_messages_proto_rawDesc = "" +
@@ -2288,7 +2333,9 @@ const file_proto_messages_proto_rawDesc = "" +
 	"\x12AIAnalysisResponse\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x1a\n" +
-	"\banalysis\x18\x03 \x01(\tR\banalysisB\x0fZ\r./internal/pbb\x06proto3"
+	"\banalysis\x18\x03 \x01(\tR\banalysis\"3\n" +
+	"\x14OpponentPlayedNotify\x12\x1b\n" +
+	"\tbattle_id\x18\x01 \x01(\x03R\bbattleIdB\x0fZ\r./internal/pbb\x06proto3"
 
 var (
 	file_proto_messages_proto_rawDescOnce sync.Once
@@ -2302,7 +2349,7 @@ func file_proto_messages_proto_rawDescGZIP() []byte {
 	return file_proto_messages_proto_rawDescData
 }
 
-var file_proto_messages_proto_msgTypes = make([]protoimpl.MessageInfo, 37)
+var file_proto_messages_proto_msgTypes = make([]protoimpl.MessageInfo, 38)
 var file_proto_messages_proto_goTypes = []any{
 	(*Heartbeat)(nil),                // 0: pb.Heartbeat
 	(*LoginRequest)(nil),             // 1: pb.LoginRequest
@@ -2341,6 +2388,7 @@ var file_proto_messages_proto_goTypes = []any{
 	(*AIHintResponse)(nil),           // 34: pb.AIHintResponse
 	(*AIAnalysisRequest)(nil),        // 35: pb.AIAnalysisRequest
 	(*AIAnalysisResponse)(nil),       // 36: pb.AIAnalysisResponse
+	(*OpponentPlayedNotify)(nil),     // 37: pb.OpponentPlayedNotify
 }
 var file_proto_messages_proto_depIdxs = []int32{
 	29, // 0: pb.LeaderboardResponse.items:type_name -> pb.LeaderboardItem
@@ -2363,7 +2411,7 @@ func file_proto_messages_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_messages_proto_rawDesc), len(file_proto_messages_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   37,
+			NumMessages:   38,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

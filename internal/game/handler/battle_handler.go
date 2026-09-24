@@ -28,6 +28,7 @@ const (
 	MsgIDPlayCard         = 14 // 出牌
 	MsgIDRoundResult      = 15 // 回合结果（推送）
 	MsgIDBattleEnd        = 16 // 对局结束（推送）
+	MsgIDOpponentPlayed   = 22 // 对手已出牌通知
 )
 
 // RegisterBattleHandlers 注册对战相关的 Handler
@@ -204,13 +205,16 @@ func HandlePlayCard(srv *network.Server) network.HandlerFunc {
 		card := logic.CardType(req.CardType)
 		_, gameOver, s1, s2, winner, err := battle.PlayCard(player.UID, card)
 
-		if err != nil {
+		// 真正的错误（出牌被拒绝）
+		if err != nil && err != logic.ErrBothNotPlayed {
 			code := int32(3)
 			msg := err.Error()
 			if err == logic.ErrBattleFinished {
 				code = 1
 			} else if err == logic.ErrNotYourTurn {
 				code = 2
+			} else if err == logic.ErrAlreadyPlayed {
+				code = 4
 			}
 			conn.WriteProtoPacket(MsgIDPlayCard, &pb.PlayCardResponse{
 				Code: code, Msg: msg,
@@ -218,25 +222,41 @@ func HandlePlayCard(srv *network.Server) network.HandlerFunc {
 			return
 		}
 
-		// 回复出牌者
+		// 回复出牌者（code=3 表示等待对方，code=0 表示双方都出了）
+		respCode := int32(3)
+		if err == nil {
+			respCode = 0
+		}
 		conn.WriteProtoPacket(MsgIDPlayCard, &pb.PlayCardResponse{
-			Code: 0, Msg: "出牌成功",
+			Code: respCode, Msg: "出牌成功",
 		})
+
+		// 通知对手“对方已出牌”
+		var opponentUID int64
+		if battle.Hand1.UID == player.UID {
+			opponentUID = battle.Hand2.UID
+		} else {
+			opponentUID = battle.Hand1.UID
+		}
+		if opConn := srv.GetConnByUID(opponentUID); opConn != nil {
+			opConn.WriteProtoPacket(MsgIDOpponentPlayed, &pb.OpponentPlayedNotify{
+				BattleId: req.BattleId,
+			})
+		}
 
 		// 停掉出牌者的计时器（对方的还在跑）
 		timer.StopPlayerTimerGlobal(req.BattleId, player.UID)
 
-		// 双方都出了，通知结果（包括平局）
-		notifyRoundResult(srv, battle, req.BattleId, s1, s2, gameOver, winner)
+		// 双方都出了，才通知结果
+		if err == nil {
+			notifyRoundResult(srv, battle, req.BattleId, s1, s2, gameOver, winner)
 
-		// 对局结束，清理
-		if gameOver {
-			notifyBattleEnd(srv, battle, req.BattleId, s1, s2, winner)
-			battleManager.Remove(req.BattleId)
-		} else {
-			// 还没结束，重启下一轮计时器
-			timer.StopBattleTimerGlobal(req.BattleId)
-			// timer.StartBattleTimerGlobal(req.BattleId, battle, srv) // 开发时注释掉
+			if gameOver {
+				notifyBattleEnd(srv, battle, req.BattleId, s1, s2, winner)
+				battleManager.Remove(req.BattleId)
+			} else {
+				timer.StopBattleTimerGlobal(req.BattleId)
+			}
 		}
 	}
 }

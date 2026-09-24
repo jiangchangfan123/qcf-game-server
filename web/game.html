@@ -303,7 +303,7 @@ const MsgID = {
     BattleCreateRoom: 11, BattleJoinRoom: 12, BattleStart: 13,
     PlayCard: 14, RoundResult: 15, BattleEnd: 16,
     Leaderboard: 17, BattleRecords: 18, BattleState: 19,
-    AIHint: 20, AIAnalysis: 21,
+    AIHint: 20, AIAnalysis: 21, OpponentPlayed: 22,
 };
 
 // ========== 登录/注册 ==========
@@ -543,6 +543,7 @@ function playCard(cardType, index) {
     if (!state.myTurn) return;
     state.myTurn = false;
     state.pendingCard = { type: cardType, index: index };
+    state.hand.splice(index, 1); // 立即移除
     renderHand();
     showMyCardWaiting(cardType);
     WS.send(MsgID.PlayCard, 'pb.PlayCardRequest', {
@@ -751,10 +752,19 @@ function setupHandlers() {
 
     // 出牌响应
     WS.on(MsgID.PlayCard, (id, msg) => {
+        if (msg.code === 3) {
+            // code=3: 等待对方出牌（正常，不做任何处理）
+            return;
+        }
         if (msg.code !== 0) {
+            // code=4: 已经出过牌; code=1: 对局结束; code=2: 不是你的回合
             toast('出牌失败: ' + msg.msg);
+            if (state.pendingCard) {
+                state.hand.splice(state.pendingCard.index, 0, state.pendingCard.type);
+                state.pendingCard = null;
+            }
             state.myTurn = true;
-            state.pendingCard = null; // 清除待出的牌
+            clearPlayedCards();
             renderHand();
             updateTurnUI();
         }
@@ -771,10 +781,8 @@ function setupHandlers() {
         document.getElementById('gameRound').textContent = `第 ${msg.round} 局 · 第 ${msg.sub_round} 轮`;
 
         // 确认出牌，移除手牌
-        if (state.pendingCard) {
-            state.hand.splice(state.pendingCard.index, 1);
-            state.pendingCard = null;
-        }
+        // 清除待出记录（牌已经在出牌时移除了）
+        state.pendingCard = null;
 
         const names = { 0: '平民', 1: '国王', 2: '奴隶' };
         const myCardNum = Number(msg.my_card);
@@ -800,16 +808,19 @@ function setupHandlers() {
         }
 
         if (!msg.game_over) {
-            // 小局结束时重置手牌
-            if (msg.round_over) {
-                state.hand = [0, 0, 0, 1, 2];
-            }
-            state.myTurn = true;
-            clearPlayedCards();
-            renderHand();
-            renderOpCards();
-            updateTurnUI();
-            document.getElementById('btnAIHint').disabled = false;
+            // 延迟 2 秒再清空出牌区，让玩家看清结果
+            setTimeout(() => {
+                // 小局结束时重置手牌
+                if (msg.round_over) {
+                    state.hand = [0, 0, 0, 1, 2];
+                }
+                state.myTurn = true;
+                clearPlayedCards();
+                renderHand();
+                renderOpCards();
+                updateTurnUI();
+                document.getElementById('btnAIHint').disabled = false;
+            }, 2000);
         }
     });
 
@@ -876,6 +887,14 @@ function setupHandlers() {
         if (msg && msg.content) {
             addChatMsg(msg.nickname || '对手', msg.content, false);
         }
+    });
+
+    // 对手已出牌通知
+    WS.on(MsgID.OpponentPlayed, (id, msg) => {
+        const opEl = document.getElementById('opPlayedCard');
+        opEl.className = 'played-card face-down';
+        opEl.innerHTML = '🎴';
+        document.getElementById('vsText').style.display = 'block';
     });
 }
 

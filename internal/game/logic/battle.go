@@ -14,6 +14,7 @@ var (
 	ErrNotYourTurn    = errors.New("还没轮到你出牌")
 	ErrInvalidCard    = errors.New("你没有这张牌了")
 	ErrBothNotPlayed  = errors.New("等待双方出牌")
+	ErrAlreadyPlayed  = errors.New("你已经出过牌了")
 )
 
 const (
@@ -172,8 +173,16 @@ func (b *Battle) doPlay(uid int64, card CardType) (roundResult, gameOver bool, p
 	switch uid {
 	case b.Hand1.UID:
 		hand = b.Hand1
+		// 已经出过牌了，拒绝
+		if b.Move1 != nil {
+			return false, false, b.Score1, b.Score2, 0, ErrAlreadyPlayed
+		}
 	case b.Hand2.UID:
 		hand = b.Hand2
+		// 已经出过牌了，拒绝
+		if b.Move2 != nil {
+			return false, false, b.Score1, b.Score2, 0, ErrAlreadyPlayed
+		}
 	default:
 		return false, false, 0, 0, 0, ErrNotYourTurn
 	}

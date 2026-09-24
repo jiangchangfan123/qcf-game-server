@@ -228,5 +228,10 @@ message AIAnalysisResponse {
   string analysis = 3;  // 复盘分析文本
 }
 
+// 对手已出牌通知（一方出牌后通知对方）
+message OpponentPlayedNotify {
+  int64 battle_id = 1;
+}
+
 
 

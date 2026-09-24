@@ -134,10 +134,16 @@ func TestPlayCard_CardConsumed(t *testing.T) {
 
 	b.PlayCard(1001, logic.CardKing) // 出国王
 
-	// 再出国王应该失败（已经用掉了）
+	// 已经出过牌了，应该拒绝（不消耗手牌）
 	_, _, _, _, _, err := b.PlayCard(1001, logic.CardKing)
-	if err != logic.ErrInvalidCard {
-		t.Errorf("第二次出国王: err = %v, want ErrInvalidCard", err)
+	if err != logic.ErrAlreadyPlayed {
+		t.Errorf("第二次出国王: err = %v, want ErrAlreadyPlayed", err)
+	}
+
+	// 确认手牌没被消耗（应该是4张）
+	hand := b.GetHand(1001)
+	if len(hand) != 4 {
+		t.Errorf("手牌数量 = %d, want 4", len(hand))
 	}
 }
 

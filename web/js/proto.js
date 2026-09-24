@@ -25,6 +25,7 @@ const Proto = (() => {
         19: 'pb.BattleState',
         20: 'pb.AIHintResponse',
         21: 'pb.AIAnalysisResponse',
+        22: 'pb.OpponentPlayedNotify',
     };
 
     const SEND_TYPES = {
