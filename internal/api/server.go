@@ -33,6 +33,7 @@ func Start(srv *network.Server) {
 	apiMux.HandleFunc("/api/stats", handleStats)
 	apiMux.HandleFunc("/api/register", handleRegister)
 	apiMux.HandleFunc("/api/login", handleLogin)
+	apiMux.HandleFunc("/api/logout", handleLogout)
 
 	// 静态文件 + API
 	mux.Handle("/api/", apiMux)
@@ -348,4 +349,44 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		"nickname": user.Nickname,
 		"token":    token,
 	})
+}
+
+func handleLogout(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		jsonResponse(w, map[string]interface{}{"code": 1, "msg": "POST only"})
+		return
+	}
+
+	//从header获取token
+	token := r.Header.Get("Authorization")
+	if token == "" {
+		jsonResponse(w, map[string]interface{}{"code": 1, "msg": "未登录"})
+		return
+	}
+
+	// 去掉 "Bearer " 前缀
+	if len(token) > 7 && token[:7] == "Bearer " {
+		token = token[7:]
+	}
+
+	claims, err := jwt.ValidateToken(token)
+	if err != nil {
+		jsonResponse(w, map[string]interface{}{"code": 1, "msg": "token无效"})
+		return
+	}
+
+	// 从匹配队列移除
+	if gameServer != nil && gameServer.MatchManager != nil {
+		gameServer.MatchManager.CancelQueue(claims.UserID)
+	}
+
+	// 关闭连接（会自动清理 session）
+	if gameServer != nil {
+		if conn := gameServer.GetConnByUID(claims.UserID); conn != nil {
+			conn.Close()
+		}
+	}
+
+	logger.Log.Infof("用户登出: %s (ID: %d)", claims.Username, claims.UserID)
+	jsonResponse(w, map[string]interface{}{"code": 0, "msg": "登出成功"})
 }

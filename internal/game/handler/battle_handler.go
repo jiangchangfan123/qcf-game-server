@@ -235,7 +235,7 @@ func HandlePlayCard(srv *network.Server) network.HandlerFunc {
 		} else {
 			// 还没结束，重启下一轮计时器
 			timer.StopBattleTimerGlobal(req.BattleId)
-			timer.StartBattleTimerGlobal(req.BattleId, battle, srv)
+			// timer.StartBattleTimerGlobal(req.BattleId, battle, srv) // 开发时注释掉
 		}
 	}
 }
@@ -266,7 +266,7 @@ func (h *BattleTimeoutHandler) OnTimeout(battleID int64, battle *logic.Battle, u
 
 	// 小局还没完 → 重启双方计时器（下一个子回合）
 	timer.StopBattleTimerGlobal(battleID)
-	timer.StartBattleTimerGlobal(battleID, battle, srv)
+	// timer.StartBattleTimerGlobal(battleID, battle, srv) // 开发时注释掉
 }
 
 // ====== 辅助函数 ======
@@ -296,7 +296,7 @@ func notifyBattleStart(srv *network.Server, result *logic.MatchResult) {
 
 	battle := battleManager.Get(result.BattleID)
 	if battle != nil {
-		timer.StartBattleTimerGlobal(result.BattleID, battle, srv)
+		// timer.StartBattleTimerGlobal(result.BattleID, battle, srv) // 开发时注释掉
 	}
 }
 
