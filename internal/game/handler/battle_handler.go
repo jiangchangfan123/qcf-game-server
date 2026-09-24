@@ -304,13 +304,12 @@ func notifyRoundResult(srv *network.Server, battle *logic.Battle, battleID int64
 	p1Conn := srv.GetConnByUID(battle.Hand1.UID)
 	p2Conn := srv.GetConnByUID(battle.Hand2.UID)
 
-	move1 := int32(0)
-	if battle.Move1 != nil {
-		move1 = int32(*battle.Move1)
-	}
-	move2 := int32(0)
-	if battle.Move2 != nil {
-		move2 = int32(*battle.Move2)
+	// 从历史记录读取（Move1/Move2 可能已被重置）
+	var move1, move2 int32
+	if len(battle.History) > 0 {
+		last := battle.History[len(battle.History)-1]
+		move1 = int32(last.Card1)
+		move2 = int32(last.Card2)
 	}
 
 	// 给玩家1的视角
