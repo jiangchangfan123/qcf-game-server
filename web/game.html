@@ -150,6 +150,25 @@
   </div>
 </div>
 
+<!-- ===== 房间等待屏 ===== -->
+<div id="screen-room" class="screen">
+  <div class="card" style="text-align:center;">
+    <h2>🏠 房间已创建</h2>
+    <div style="margin:20px 0;">
+      <div style="font-size:14px;color:#888;">房间码</div>
+      <div id="roomCodeDisplay" style="font-size:48px;font-weight:bold;color:#1890ff;letter-spacing:8px;margin:10px 0;">------</div>
+      <div style="font-size:13px;color:#999;">分享房间码给好友加入对战</div>
+    </div>
+    <div style="text-align:left;padding:10px 20px;">
+      <div style="margin-bottom:8px;">👑 房主: <span id="roomHost">-</span></div>
+      <div>⚔️ 挑战者: <span id="roomGuest" style="color:#bbb;">等待加入...</span></div>
+    </div>
+    <div style="margin-top:20px;">
+      <button class="btn btn-danger" onclick="leaveRoom()" style="width:auto;padding:10px 30px;">离开房间</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== 对战屏 ===== -->
 <div id="screen-game" class="screen">
   <div class="card game-header">
@@ -200,13 +219,15 @@ const state = {
     subRound: 1,
     myTurn: false,
     matching: false,
+    roomCode: '',
 };
 
 // ========== 工具函数 ==========
 function showScreen(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
-    document.getElementById('btnBackLobby').style.display = id === 'screen-game' ? 'inline-block' : 'none';
+    document.getElementById('btnBackLobby').style.display = 
+        (id === 'screen-game' || id === 'screen-room') ? 'inline-block' : 'none';
 }
 
 function toast(msg) {
@@ -322,6 +343,9 @@ function goLobby() {
     state.hand = [];
     state.myTurn = false;
     state.matching = false;
+    // 重置匹配按钮
+    document.getElementById('btnMatch').style.display = 'block';
+    document.getElementById('btnCancelMatch').style.display = 'none';
     showScreen('screen-lobby');
     loadLeaderboard();
     loadStats();
@@ -337,6 +361,11 @@ function doCancelMatch() {
 
 function doCreateRoom() {
     WS.send(MsgID.BattleCreateRoom, 'pb.BattleCreateRoomRequest', {});
+}
+
+function leaveRoom() {
+    state.roomCode = '';
+    goLobby();
 }
 
 function doJoinRoom() {
@@ -473,7 +502,12 @@ function setupHandlers() {
     // 创建房间
     WS.on(MsgID.BattleCreateRoom, (id, msg) => {
         if (msg.code === 0) {
-            toast('房间码: ' + msg.room_code + '，等待对手加入...');
+            state.roomCode = msg.room_code;
+            document.getElementById('roomCodeDisplay').textContent = msg.room_code;
+            document.getElementById('roomHost').textContent = state.nickname || '玩家' + state.uid;
+            document.getElementById('roomGuest').textContent = '等待加入...';
+            document.getElementById('roomGuest').style.color = '#bbb';
+            showScreen('screen-room');
         } else {
             toast(msg.msg);
         }
@@ -548,8 +582,8 @@ function setupHandlers() {
         document.getElementById('gameRound').textContent = `第 ${msg.round} 局 · 第 ${msg.sub_round} 轮`;
 
         const names = { 0: '平民', 1: '国王', 2: '奴隶' };
-        const myCard = names[msg.my_card] || '?';
-        const opCard = names[msg.op_card] || '?';
+        const myCard = names[Number(msg.my_card)] || '?';
+        const opCard = names[Number(msg.op_card)] || '?';
         const resultEl = document.getElementById('roundResult');
         resultEl.style.display = 'block';
 
