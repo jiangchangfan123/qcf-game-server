@@ -29,10 +29,10 @@ redis:
   pool_timeout: 5
 
 llm:
-  api_key: ""
-  base_url: ""
-  model: ""
-  timeout: 10
+  api_key: "tp-c11ypbb6eor7huhx0ljbp6o61pdik4envq4lqffyk4lmyr41"
+  base_url: "https://token-plan-cn.xiaomimimo.com/v1"
+  model: "mimo-v2.6-flash"
+  timeout: 30
 
 rabbitmq:
   url: "amqp://guest:guest@localhost:5672/"

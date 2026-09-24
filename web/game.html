@@ -418,11 +418,19 @@ function updateTurnUI() {
 // ========== AI 功能 ==========
 function doAIHint() {
     if (!state.battleId) return;
+    const el = document.getElementById('aiResponse');
+    el.classList.add('show');
+    el.innerHTML = '⏳ AI 思考中...';
+    document.getElementById('btnAIHint').disabled = true;
     WS.send(MsgID.AIHint, 'pb.AIHintRequest', { battle_id: state.battleId });
 }
 
 function doAIAnalysis() {
     if (!state.battleId) return;
+    const el = document.getElementById('aiResponse');
+    el.classList.add('show');
+    el.innerHTML = '⏳ AI 分析中...';
+    document.getElementById('btnAIAnalysis').disabled = true;
     WS.send(MsgID.AIAnalysis, 'pb.AIAnalysisRequest', { battle_id: state.battleId });
 }
 
@@ -642,9 +650,10 @@ function setupHandlers() {
     WS.on(MsgID.AIHint, (id, msg) => {
         const el = document.getElementById('aiResponse');
         el.classList.add('show');
+        document.getElementById('btnAIHint').disabled = false;
         if (msg.code === 0) {
             const names = { 0: '平民', 1: '国王', 2: '奴隶' };
-            el.innerHTML = `<strong>AI 建议出: ${names[msg.suggested_card] || '?'}</strong><br>${msg.reason || ''}`;
+            el.innerHTML = `<strong>AI 建议出: ${names[Number(msg.suggested_card)] || '?'}</strong><br>${msg.reason || ''}`;
         } else {
             el.textContent = msg.msg || 'AI 服务不可用';
         }
@@ -654,6 +663,7 @@ function setupHandlers() {
     WS.on(MsgID.AIAnalysis, (id, msg) => {
         const el = document.getElementById('aiResponse');
         el.classList.add('show');
+        document.getElementById('btnAIAnalysis').disabled = false;
         if (msg.code === 0) {
             el.innerHTML = `<strong>AI 复盘：</strong><br>${msg.analysis || ''}`;
         } else {

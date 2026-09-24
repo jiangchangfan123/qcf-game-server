@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"GameServer/internal/config"
 	"GameServer/internal/game/logic"
 	"GameServer/internal/network"
 	"GameServer/internal/pb"
@@ -24,7 +25,7 @@ func RegisterAIHandlers(router *network.Router, srv *network.Server) {
 	router.Register(MsgIDAIAnalysis, HandleAIAnalysis(srv))
 }
 
-// HandleAIHint AI出牌建议（每小局限一次）
+// HandleAIHint AI出牌建议（每小局限一次，异步调用LLM）
 func HandleAIHint(srv *network.Server) network.HandlerFunc {
 	return func(conn network.Conn, pkt *network.Packet) {
 		req := &pb.AIHintRequest{}
@@ -52,60 +53,42 @@ func HandleAIHint(srv *network.Server) network.HandlerFunc {
 			return
 		}
 
-		// 获取当前手牌和比分
-		hand := battle.FormatHand(player.UID)
-		myScore, opScore := battle.GetScore(player.UID)
-		history := battle.FormatHistory(player.UID)
-
-		systemPrompt := `你是一个卡牌对战游戏AI助手。游戏规则：
-- 牌型：平民(0)、国王(1)、奴隶(2)
-- 克制关系：国王克平民，平民克奴隶，奴隶克国王
-- 玩家正在对局中，需要你建议下一张出什么牌。
-
-请根据当前局面分析，给出最佳出牌建议。
-回复格式（严格遵守）：
-牌型:0
-理由:xxxxx
-或
-牌型:1
-理由:xxxxx
-或
-牌型:2
-理由:xxxxx`
-
-		userPrompt := fmt.Sprintf(`当前局面：
-比分：我 %d : %d 对手
-我的手牌：%s
-历史出牌：%s
-
-请建议我下一张出什么牌。`,
-			myScore, opScore, hand, history)
-
-		reply, err := llm.Chat(systemPrompt, userPrompt)
-		if err != nil {
-			logger.Log.Errorf("AI 出牌建议失败: %v", err)
-			conn.WriteProtoPacket(MsgIDAIHint, &pb.AIHintResponse{Code: 1, Msg: "AI服务暂时不可用"})
-			return
-		}
-
-		// 解析 AI 返回的牌型
-		suggestedCard := parseCardFromReply(reply)
-		reason := parseReasonFromReply(reply)
-
+		// 立即标记已使用（防止重复点击）
 		battle.MarkHintUsed(player.UID)
 
-		conn.WriteProtoPacket(MsgIDAIHint, &pb.AIHintResponse{
-			Code:          0,
-			Msg:           "success",
-			SuggestedCard: int32(suggestedCard),
-			Reason:        reason,
-		})
+		// 获取快照（异步用）
+		hand := battle.FormatHand(player.UID)
+		myScore, opScore := battle.GetScore(player.UID)
 
-		logger.Log.Infof("玩家 %d AI出牌建议: %d, 理由: %s", player.UID, suggestedCard, reason)
+		// 异步调用 LLM
+		go func() {
+			systemPrompt := "你是卡牌对战AI。规则：国王克平民，平民克奴隶，奴隶克国王。根据当前局面建议出牌。直接回复格式：\n牌型:0/1/2\n理由:一句话"
+
+			userPrompt := fmt.Sprintf(`比分：%d:%d，手牌：%s。建议出什么？`,
+				myScore, opScore, hand)
+
+			reply, err := llm.Chat(systemPrompt, userPrompt)
+			if err != nil {
+				logger.Log.Errorf("AI 出牌建议失败: %v, model=%s, base_url=%s", err, config.C.LLM.Model, config.C.LLM.BaseURL)
+				conn.WriteProtoPacket(MsgIDAIHint, &pb.AIHintResponse{Code: 1, Msg: "AI服务暂时不可用: " + err.Error()})
+				return
+			}
+
+			suggestedCard := parseCardFromReply(reply)
+			reason := parseReasonFromReply(reply)
+
+			conn.WriteProtoPacket(MsgIDAIHint, &pb.AIHintResponse{
+				Code:          0,
+				Msg:           "success",
+				SuggestedCard: int32(suggestedCard),
+				Reason:        reason,
+			})
+			logger.Log.Infof("玩家 %d AI出牌建议: %d, 理由: %s", player.UID, suggestedCard, reason)
+		}()
 	}
 }
 
-// HandleAIAnalysis AI对局复盘
+// HandleAIAnalysis AI对局复盘（异步调用LLM）
 func HandleAIAnalysis(srv *network.Server) network.HandlerFunc {
 	return func(conn network.Conn, pkt *network.Packet) {
 		req := &pb.AIAnalysisRequest{}
@@ -121,50 +104,38 @@ func HandleAIAnalysis(srv *network.Server) network.HandlerFunc {
 		}
 		player := s.(*session.Session)
 
-		// 复盘时对局可能已结束，从 battleManager 或已结束的对局中获取
 		battle := battleManager.Get(req.BattleId)
 		if battle == nil {
 			conn.WriteProtoPacket(MsgIDAIAnalysis, &pb.AIAnalysisResponse{Code: 1, Msg: "对局不存在或已结束"})
 			return
 		}
 
+		// 获取快照
 		hand := battle.FormatHand(player.UID)
 		myScore, opScore := battle.GetScore(player.UID)
 		history := battle.FormatHistory(player.UID)
 
-		systemPrompt := `你是一个卡牌对战游戏复盘分析师。游戏规则：
-- 牌型：平民(0)、国王(1)、奴隶(2)
-- 克制关系：国王克平民，平民克奴隶，奴隶克国王
+		// 异步调用 LLM
+		go func() {
+			systemPrompt := "你是卡牌对战复盘分析师。规则：国王克平民，平民克奴隶，奴隶克国王。分析对局表现，给出策略评价和改进建议。150字以内。"
 
-请分析玩家的对局表现，给出：
-1. 出牌策略评价（哪些出得好，哪些有问题）
-2. 对手的出牌模式分析
-3. 改进建议
+			userPrompt := fmt.Sprintf(`比分：%d:%d，手牌：%s，历史：%s。分析这局。`,
+				myScore, opScore, hand, history)
 
-回复简洁明了，用中文，200字以内。`
+			reply, err := llm.Chat(systemPrompt, userPrompt)
+			if err != nil {
+				logger.Log.Errorf("AI 复盘分析失败: %v", err)
+				conn.WriteProtoPacket(MsgIDAIAnalysis, &pb.AIAnalysisResponse{Code: 1, Msg: "AI服务暂时不可用"})
+				return
+			}
 
-		userPrompt := fmt.Sprintf(`对局数据：
-最终比分：我 %d : %d 对手
-当前手牌：%s
-历史出牌：%s
-
-请分析这局对战。`,
-			myScore, opScore, hand, history)
-
-		reply, err := llm.Chat(systemPrompt, userPrompt)
-		if err != nil {
-			logger.Log.Errorf("AI 复盘分析失败: %v", err)
-			conn.WriteProtoPacket(MsgIDAIAnalysis, &pb.AIAnalysisResponse{Code: 1, Msg: "AI服务暂时不可用"})
-			return
-		}
-
-		conn.WriteProtoPacket(MsgIDAIAnalysis, &pb.AIAnalysisResponse{
-			Code:     0,
-			Msg:      "success",
-			Analysis: reply,
-		})
-
-		logger.Log.Infof("玩家 %d AI复盘完成", player.UID)
+			conn.WriteProtoPacket(MsgIDAIAnalysis, &pb.AIAnalysisResponse{
+				Code:     0,
+				Msg:      "success",
+				Analysis: reply,
+			})
+			logger.Log.Infof("玩家 %d AI复盘完成", player.UID)
+		}()
 	}
 }
 
@@ -182,13 +153,12 @@ func parseCardFromReply(reply string) logic.CardType {
 			}
 		}
 	}
-	// 兜底：找第一个数字
 	for _, ch := range reply {
 		if ch >= '0' && ch <= '2' {
 			return logic.CardType(int(ch - '0'))
 		}
 	}
-	return logic.CardCommoner // 默认平民
+	return logic.CardCommoner
 }
 
 // parseReasonFromReply 从AI回复中解析理由
@@ -202,7 +172,6 @@ func parseReasonFromReply(reply string) string {
 			return strings.TrimSpace(val)
 		}
 	}
-	// 兜底：返回完整回复（截断）
 	if len(reply) > 100 {
 		return reply[:100] + "..."
 	}

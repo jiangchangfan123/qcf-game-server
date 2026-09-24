@@ -151,3 +151,15 @@ func (m *MatchManager) RoomCount() int {
 	defer m.roomMu.Unlock()
 	return len(m.rooms)
 }
+
+// GetRoomByPlayer 根据玩家 UID 查找其创建的房间
+func (m *MatchManager) GetRoomByPlayer(uid int64) *RoomInfo {
+	m.roomMu.Lock()
+	defer m.roomMu.Unlock()
+	for _, room := range m.rooms {
+		if room.Creator.UID == uid {
+			return room
+		}
+	}
+	return nil
+}

@@ -13,6 +13,7 @@ import (
 type chatRequest struct {
 	Model    string    `json:"model"`
 	Messages []message `json:"messages"`
+	Stream   bool      `json:"stream"`
 }
 
 type message struct {
@@ -31,7 +32,8 @@ func Chat(systemPrompt, userPrompt string) (string, error) {
 	cfg := config.C.LLM
 
 	reqBody := chatRequest{
-		Model: cfg.Model,
+		Model:  cfg.Model,
+		Stream: false,
 		Messages: []message{
 			{Role: "system", Content: systemPrompt},
 			{Role: "user", Content: userPrompt},
