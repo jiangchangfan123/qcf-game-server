@@ -48,6 +48,16 @@ func InitBattleSystem() {
 	timer.Init(&BattleTimeoutHandler{}) // 初始化计时器，传入回调实现
 }
 
+// GetBattleManager 获取对局管理器（供 API 层使用）
+func GetBattleManager() *logic.BattleManager {
+	return battleManager
+}
+
+// GetMatchManager 获取匹配管理器（供 API 层使用）
+func GetMatchManager() *logic.MatchManager {
+	return matchManager
+}
+
 func HandleMatch(srv *network.Server) network.HandlerFunc {
 	return func(conn network.Conn, pkt *network.Packet) {
 		s := conn.GetSession()

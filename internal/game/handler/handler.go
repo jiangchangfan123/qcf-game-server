@@ -394,6 +394,22 @@ func HandleAuth(sm *session.SessionManager, srv *network.Server) network.Handler
 		}
 		s.ConnID = conn.ID()
 
+		// 踢掉同一 UID 的旧连接
+	if oldSession, exists := sm.GetByUID(claims.UserID); exists {
+		if oldConn, ok := srv.GetConn(oldSession.ConnID); ok {
+			logger.Log.Infof("玩家 %s 重复登录，踢掉旧连接 (conn=%d)", claims.Username, oldSession.ConnID)
+			oldConn.WriteProtoPacket(MsgIDSysNotify, &pb.SystemNotify{Content: "您的账号在其他地方登录"})
+		}
+		// 先从匹配队列移除，再关连接（避免 defer 里的 CancelQueue 竞争）
+		if srv.MatchManager != nil {
+			srv.MatchManager.CancelQueue(claims.UserID)
+		}
+		sm.Remove(oldSession.ConnID)
+		if oldConn, ok := srv.GetConn(oldSession.ConnID); ok {
+			oldConn.Close()
+		}
+	}
+
 		sm.Add(s)
 		conn.SetSession(s)
 		restoreBattleState(srv, sm, claims.UserID, conn)

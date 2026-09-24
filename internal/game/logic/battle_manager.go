@@ -73,3 +73,30 @@ func (m *BattleManager) IsInBattle(uid int64) bool {
 	_, ok := m.playerMap[uid]
 	return ok
 }
+
+// GetAll 获取所有进行中的对局（快照）
+type BattleSnapshot struct {
+	ID     int64
+	P1UID  int64
+	P2UID  int64
+	Score1 int32
+	Score2 int32
+	Round  int32
+	State  BattleState
+}
+
+func (m *BattleManager) GetAll() []BattleSnapshot {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	result := make([]BattleSnapshot, 0, len(m.battles))
+	for _, b := range m.battles {
+		b.mu.Lock()
+		snap := BattleSnapshot{
+			ID: b.ID, P1UID: b.Hand1.UID, P2UID: b.Hand2.UID,
+			Score1: b.Score1, Score2: b.Score2, Round: b.Round, State: b.State,
+		}
+		b.mu.Unlock()
+		result = append(result, snap)
+	}
+	return result
+}

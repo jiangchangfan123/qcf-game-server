@@ -9,6 +9,7 @@ import (
 type ServerConfig struct {
 	Port      string          `yaml:"port"`
 	WSPort    string          `yaml:"ws_port"`
+	APIPort   string          `yaml:"api_port"`
 	Heartbeat HeartbeatConfig `yaml:"heartbeat"`
 	Database  DatabaseConfig  `yaml:"database"`
 	Redis     RedisConfig     `yaml:"redis"`

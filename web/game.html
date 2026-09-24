@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QCF Game</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #f0f2f5; min-height: 100vh; }
+
+  /* 顶栏 */
+  .topbar { background: linear-gradient(135deg, #1890ff, #722ed1); color: #fff; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; }
+  .topbar h1 { font-size: 18px; }
+  .topbar .info { font-size: 13px; opacity: 0.85; }
+  .topbar button { background: rgba(255,255,255,0.2); color: #fff; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+
+  /* 屏幕切换 */
+  .screen { display: none; max-width: 500px; margin: 40px auto; padding: 0 20px; }
+  .screen.active { display: block; }
+
+  /* 卡片 */
+  .card { background: #fff; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .card h2 { font-size: 20px; margin-bottom: 16px; text-align: center; }
+
+  /* 表单 */
+  .form-group { margin-bottom: 14px; }
+  .form-group label { display: block; font-size: 13px; color: #666; margin-bottom: 4px; }
+  .form-group input { width: 100%; padding: 10px 12px; border: 1px solid #d9d9d9; border-radius: 8px; font-size: 14px; outline: none; }
+  .form-group input:focus { border-color: #1890ff; }
+
+  /* 按钮 */
+  .btn { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 8px; transition: all 0.2s; }
+  .btn-primary { background: #1890ff; color: #fff; }
+  .btn-primary:hover { background: #40a9ff; }
+  .btn-danger { background: #ff4d4f; color: #fff; }
+  .btn-danger:hover { background: #ff7875; }
+  .btn-success { background: #52c41a; color: #fff; }
+  .btn-success:hover { background: #73d13d; }
+  .btn-outline { background: #fff; color: #1890ff; border: 1px solid #1890ff; }
+  .btn-outline:hover { background: #e6f7ff; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-sm { padding: 8px 16px; font-size: 13px; width: auto; }
+
+  /* 大厅 */
+  .lobby-stats { display: flex; gap: 12px; margin-bottom: 20px; }
+  .lobby-stat { flex: 1; background: #fff; border-radius: 10px; padding: 14px; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
+  .lobby-stat .num { font-size: 24px; font-weight: bold; color: #1890ff; }
+  .lobby-stat .label { font-size: 12px; color: #888; margin-top: 4px; }
+
+  /* 对战 */
+  .game-header { text-align: center; margin-bottom: 16px; }
+  .game-header .score { font-size: 36px; font-weight: bold; color: #1890ff; }
+  .game-header .round { font-size: 14px; color: #888; margin-top: 4px; }
+  .game-header .opponent { font-size: 13px; color: #666; margin-top: 2px; }
+
+  .hand { display: flex; gap: 10px; justify-content: center; margin: 20px 0; flex-wrap: wrap; }
+  .card-btn { width: 90px; height: 120px; border: 2px solid #d9d9d9; border-radius: 12px; background: #fff; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: all 0.2s; font-size: 14px; }
+  .card-btn:hover { border-color: #1890ff; transform: translateY(-4px); box-shadow: 0 4px 12px rgba(24,144,255,0.2); }
+  .card-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+  .card-btn .icon { font-size: 36px; margin-bottom: 6px; }
+  .card-btn .name { font-weight: 600; }
+
+  .turn-indicator { text-align: center; padding: 10px; border-radius: 8px; margin-bottom: 12px; font-weight: 600; }
+  .turn-mine { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+  .turn-wait { background: #fff7e6; color: #fa8c16; border: 1px solid #ffd591; }
+
+  .result-box { text-align: center; padding: 16px; border-radius: 10px; margin: 12px 0; font-size: 15px; }
+  .result-win { background: #f6ffed; color: #52c41a; }
+  .result-lose { background: #fff1f0; color: #ff4d4f; }
+  .result-draw { background: #fff7e6; color: #fa8c16; }
+
+  .ai-bar { display: flex; gap: 10px; margin: 12px 0; justify-content: center; }
+  .ai-response { background: #f6ffed; border: 1px solid #b7eb8f; border-radius: 8px; padding: 12px; margin-top: 10px; font-size: 13px; line-height: 1.6; display: none; }
+  .ai-response.show { display: block; }
+
+  .game-over { text-align: center; padding: 30px; }
+  .game-over h2 { font-size: 24px; margin-bottom: 10px; }
+  .game-over .final-score { font-size: 48px; font-weight: bold; color: #1890ff; margin: 16px 0; }
+
+  /* Toast */
+  .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 14px; z-index: 999; display: none; }
+  .toast.show { display: block; animation: fadeInOut 2s; }
+  @keyframes fadeInOut { 0%{opacity:0} 10%{opacity:1} 80%{opacity:1} 100%{opacity:0} }
+
+  /* 排行榜 */
+  .lb-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .lb-table th, .lb-table td { padding: 8px; text-align: center; border-bottom: 1px solid #f0f0f0; }
+  .lb-table th { background: #fafafa; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>🎮 QCF Game</h1>
+  <div>
+    <span class="info" id="statusText">连接中...</span>
+    <button onclick="goLobby()" id="btnBackLobby" style="display:none">返回大厅</button>
+  </div>
+</div>
+
+<!-- ===== 登录屏 ===== -->
+<div id="screen-login" class="screen active">
+  <div class="card">
+    <h2>登录</h2>
+    <div class="form-group">
+      <label>用户名</label>
+      <input type="text" id="loginUser" placeholder="请输入用户名">
+    </div>
+    <div class="form-group">
+      <label>密码</label>
+      <input type="password" id="loginPass" placeholder="请输入密码">
+    </div>
+    <button class="btn btn-primary" onclick="doLogin()">登录</button>
+    <button class="btn btn-outline" onclick="doRegister()">注册新账号</button>
+  </div>
+</div>
+
+<!-- ===== 大厅屏 ===== -->
+<div id="screen-lobby" class="screen">
+  <div class="lobby-stats">
+    <div class="lobby-stat"><div class="num" id="lbOnline">-</div><div class="label">在线</div></div>
+    <div class="lobby-stat"><div class="num" id="lbBattles">-</div><div class="label">对局中</div></div>
+    <div class="lobby-stat"><div class="num" id="lbQueue">-</div><div class="label">匹配中</div></div>
+  </div>
+
+  <div class="card">
+    <h2>⚔️ 快速匹配</h2>
+    <p style="text-align:center;color:#888;margin-bottom:12px;">随机匹配一名在线玩家对战</p>
+    <button class="btn btn-primary" id="btnMatch" onclick="doMatch()">开始匹配</button>
+    <button class="btn btn-danger" id="btnCancelMatch" onclick="doCancelMatch()" style="display:none">取消匹配</button>
+  </div>
+
+  <div class="card">
+    <h2>🏠 房间对战</h2>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-success" onclick="doCreateRoom()" style="flex:1">创建房间</button>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:10px;">
+      <input type="text" id="roomCodeInput" placeholder="输入房间码" style="flex:1;padding:10px;border:1px solid #d9d9d9;border-radius:8px;">
+      <button class="btn btn-outline btn-sm" onclick="doJoinRoom()">加入</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🏆 排行榜</h2>
+    <table class="lb-table">
+      <thead><tr><th>#</th><th>玩家</th><th>胜场</th><th>总场</th><th>胜率</th></tr></thead>
+      <tbody id="lbBody"><tr><td colspan="5" style="color:#bbb">暂无数据</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ===== 对战屏 ===== -->
+<div id="screen-game" class="screen">
+  <div class="card game-header">
+    <div class="opponent" id="gameOpponent">对手: -</div>
+    <div class="score"><span id="gameMyScore">0</span> : <span id="gameOpScore">0</span></div>
+    <div class="round" id="gameRound">第 1 局 · 第 1 轮</div>
+  </div>
+
+  <div class="turn-indicator turn-wait" id="turnIndicator">等待对局开始...</div>
+
+  <div class="result-box" id="roundResult" style="display:none"></div>
+
+  <div class="hand" id="handCards"></div>
+
+  <div class="card">
+    <h2 style="font-size:15px;">🤖 AI 功能</h2>
+    <div class="ai-bar">
+      <button class="btn btn-outline btn-sm" onclick="doAIHint()" id="btnAIHint">AI 出牌建议</button>
+      <button class="btn btn-outline btn-sm" onclick="doAIAnalysis()" id="btnAIAnalysis">AI 复盘分析</button>
+    </div>
+    <div class="ai-response" id="aiResponse"></div>
+  </div>
+
+  <!-- 对局结束 -->
+  <div class="card game-over" id="gameOverCard" style="display:none">
+    <h2 id="gameOverTitle">对局结束</h2>
+    <div class="final-score" id="gameOverScore"></div>
+    <button class="btn btn-primary" onclick="goLobby()">返回大厅</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/js/protobuf.min.js"></script>
+<script src="/js/proto.js"></script>
+<script src="/js/ws.js"></script>
+<script>
+// ========== 全局状态 ==========
+const state = {
+    token: localStorage.getItem('token') || '',
+    uid: parseInt(localStorage.getItem('uid') || '0'),
+    nickname: localStorage.getItem('nickname') || '',
+    battleId: 0,
+    hand: [],
+    myScore: 0,
+    opScore: 0,
+    round: 1,
+    subRound: 1,
+    myTurn: false,
+    matching: false,
+};
+
+// ========== 工具函数 ==========
+function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    document.getElementById('btnBackLobby').style.display = id === 'screen-game' ? 'inline-block' : 'none';
+}
+
+function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.remove('show');
+    void el.offsetWidth;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+function setOnline(n) { document.getElementById('lbOnline').textContent = n; }
+function setBattles(n) { document.getElementById('lbBattles').textContent = n; }
+function setQueue(n) { document.getElementById('lbQueue').textContent = n; }
+
+// ========== 消息ID常量 ==========
+const MsgID = {
+    Heartbeat: 1, Login: 2, Chat: 3, JoinRoom: 4, LeaveRoom: 5,
+    SysNotify: 6, Register: 7, Auth: 8, Match: 9, MatchCancel: 10,
+    BattleCreateRoom: 11, BattleJoinRoom: 12, BattleStart: 13,
+    PlayCard: 14, RoundResult: 15, BattleEnd: 16,
+    Leaderboard: 17, BattleRecords: 18, BattleState: 19,
+    AIHint: 20, AIAnalysis: 21,
+};
+
+// ========== 登录/注册 ==========
+function doRegister() {
+    const user = document.getElementById('loginUser').value.trim();
+    const pass = document.getElementById('loginPass').value.trim();
+    if (!user || !pass) { toast('请输入用户名和密码'); return; }
+
+    fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: user, password: pass })
+    })
+    .then(r => r.json())
+    .then(data => {
+        toast(data.msg);
+        if (data.code === 0) {
+            // 注册成功，自动登录
+            doLogin();
+        }
+    })
+    .catch(() => toast('网络错误'));
+}
+
+function doLogin() {
+    const user = document.getElementById('loginUser').value.trim();
+    const pass = document.getElementById('loginPass').value.trim();
+    if (!user || !pass) { toast('请输入用户名和密码'); return; }
+
+    fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: user, password: pass })
+    })
+    .then(r => r.json())
+    .then(data => {
+        toast(data.msg);
+        if (data.code === 0) {
+            state.token = data.token;
+            state.uid = data.uid;
+            state.nickname = data.nickname || '';
+            localStorage.setItem('token', state.token);
+            localStorage.setItem('uid', state.uid);
+            localStorage.setItem('nickname', state.nickname);
+            // 登录成功，连接 WebSocket 然后进大厅
+            connectAndEnter();
+        }
+    })
+    .catch(() => toast('网络错误'));
+}
+
+async function connectAndEnter() {
+    document.getElementById('statusText').textContent = '连接中...';
+    document.getElementById('statusText').style.color = '#faad14';
+
+    // 等待 Proto 加载完成
+    if (!protoReady && protoPromise) {
+        console.log('[Main] 等待 Proto 加载...');
+        try {
+            await protoPromise;
+        } catch(e) {
+            console.error('[Main] Proto 加载异常:', e);
+        }
+    }
+    if (!protoReady) {
+        console.error('[Main] Proto 未就绪');
+        toast('协议加载失败，请刷新页面');
+        document.getElementById('statusText').textContent = '协议加载失败';
+        document.getElementById('statusText').style.color = '#ff4d4f';
+        return;
+    }
+    console.log('[Main] Proto 就绪，连接 WebSocket...');
+
+    // 连接 WebSocket
+    try {
+        await WS.connect('ws://localhost:8081/ws');
+        console.log('[Main] WebSocket 已连接');
+    } catch(e) {
+        console.warn('[WS] 连接失败，稍后重试', e);
+    }
+
+    // 通过 WebSocket 认证
+    WS.send(MsgID.Auth, 'pb.AuthRequest', { token: state.token });
+    console.log('[Main] Auth 已发送');
+}
+
+// ========== 大厅 ==========
+function goLobby() {
+    state.battleId = 0;
+    state.hand = [];
+    state.myTurn = false;
+    state.matching = false;
+    showScreen('screen-lobby');
+    loadLeaderboard();
+    loadStats();
+}
+
+function doMatch() {
+    WS.send(MsgID.Match, 'pb.MatchRequest', {});
+}
+
+function doCancelMatch() {
+    WS.send(MsgID.MatchCancel, 'pb.MatchCancelRequest', {});
+}
+
+function doCreateRoom() {
+    WS.send(MsgID.BattleCreateRoom, 'pb.BattleCreateRoomRequest', {});
+}
+
+function doJoinRoom() {
+    const code = document.getElementById('roomCodeInput').value.trim();
+    if (!code) { toast('请输入房间码'); return; }
+    WS.send(MsgID.BattleJoinRoom, 'pb.BattleJoinRoomRequest', { room_code: code });
+}
+
+// ========== 对战 ==========
+function renderHand() {
+    const container = document.getElementById('handCards');
+    const icons = { 0: '👤', 1: '👑', 2: '⛓️' };
+    const names = { 0: '平民', 1: '国王', 2: '奴隶' };
+    container.innerHTML = '';
+    state.hand.forEach((card, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'card-btn';
+        btn.disabled = !state.myTurn;
+        btn.innerHTML = `<div class="icon">${icons[card]}</div><div class="name">${names[card]}</div>`;
+        btn.onclick = () => playCard(card, i);
+        container.appendChild(btn);
+    });
+}
+
+function playCard(cardType, index) {
+    if (!state.myTurn) return;
+    state.myTurn = false;
+    state.hand.splice(index, 1);
+    renderHand();
+    WS.send(MsgID.PlayCard, 'pb.PlayCardRequest', {
+        battle_id: state.battleId,
+        card_type: cardType,
+    });
+    document.getElementById('turnIndicator').className = 'turn-indicator turn-wait';
+    document.getElementById('turnIndicator').textContent = '等待对手出牌...';
+}
+
+function updateTurnUI() {
+    const el = document.getElementById('turnIndicator');
+    if (state.myTurn) {
+        el.className = 'turn-indicator turn-mine';
+        el.textContent = '轮到你出牌！';
+    } else {
+        el.className = 'turn-indicator turn-wait';
+        el.textContent = '等待对手出牌...';
+    }
+    renderHand();
+}
+
+// ========== AI 功能 ==========
+function doAIHint() {
+    if (!state.battleId) return;
+    WS.send(MsgID.AIHint, 'pb.AIHintRequest', { battle_id: state.battleId });
+}
+
+function doAIAnalysis() {
+    if (!state.battleId) return;
+    WS.send(MsgID.AIAnalysis, 'pb.AIAnalysisRequest', { battle_id: state.battleId });
+}
+
+// ========== 排行榜 ==========
+async function loadLeaderboard() {
+    try {
+        const res = await fetch('/api/leaderboard?top=10');
+        const data = await res.json();
+        const tbody = document.getElementById('lbBody');
+        if (!data.data || data.data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="color:#bbb">暂无数据</td></tr>';
+            return;
+        }
+        const medals = ['🥇','🥈','🥉'];
+        tbody.innerHTML = data.data.map((item, i) => {
+            const wr = item.win_rate.toFixed(1);
+            return `<tr><td>${medals[i]||item.rank}</td><td>${item.uid}</td><td>${item.win}</td><td>${item.total}</td><td>${wr}%</td></tr>`;
+        }).join('');
+    } catch(e) { console.error('排行榜加载失败', e); }
+}
+
+async function loadStats() {
+    try {
+        const res = await fetch('/api/stats');
+        const data = await res.json();
+        if (data.code === 0) {
+            setOnline(data.data.online);
+            setBattles(data.data.battles);
+            setQueue(data.data.queue);
+        }
+    } catch(e) {}
+}
+
+// ========== 消息处理器 ==========
+function setupHandlers() {
+    // 心跳
+    WS.on(MsgID.Heartbeat, () => {});
+
+    // 注册响应（REST 登录后不再需要，保留兼容）
+    WS.on(MsgID.Register, (id, msg) => {});
+
+    // 登录响应（REST 登录后不再需要，保留兼容）
+    WS.on(MsgID.Login, (id, msg) => {});
+
+    // 认证响应
+    WS.on(MsgID.Auth, (id, msg) => {
+        if (msg.code === 0) {
+            state.nickname = msg.nickname || '';
+            localStorage.setItem('nickname', state.nickname);
+            toast('登录成功');
+            goLobby();
+        } else {
+            toast('认证失败: ' + msg.msg);
+        }
+    });
+
+    // 匹配响应
+    WS.on(MsgID.Match, (id, msg) => {
+        if (msg.code === 0) {
+            state.matching = true;
+            document.getElementById('btnMatch').style.display = 'none';
+            document.getElementById('btnCancelMatch').style.display = 'block';
+            toast('已进入匹配队列');
+        } else {
+            toast(msg.msg);
+        }
+    });
+
+    // 取消匹配
+    WS.on(MsgID.MatchCancel, (id, msg) => {
+        state.matching = false;
+        document.getElementById('btnMatch').style.display = 'block';
+        document.getElementById('btnCancelMatch').style.display = 'none';
+        toast(msg.msg);
+    });
+
+    // 创建房间
+    WS.on(MsgID.BattleCreateRoom, (id, msg) => {
+        if (msg.code === 0) {
+            toast('房间码: ' + msg.room_code + '，等待对手加入...');
+        } else {
+            toast(msg.msg);
+        }
+    });
+
+    // 加入房间
+    WS.on(MsgID.BattleJoinRoom, (id, msg) => {
+        if (msg.code !== 0) toast(msg.msg);
+    });
+
+    // 对局开始
+    WS.on(MsgID.BattleStart, (id, msg) => {
+        state.battleId = Number(msg.battle_id);
+        state.round = msg.round || 1;
+        state.subRound = 1;
+        state.myScore = 0;
+        state.opScore = 0;
+        state.matching = false;
+        document.getElementById('gameOpponent').textContent = '对手: ' + (msg.nickname || '玩家' + msg.opponent);
+        document.getElementById('gameMyScore').textContent = '0';
+        document.getElementById('gameOpScore').textContent = '0';
+        document.getElementById('gameRound').textContent = '第 1 局 · 第 1 轮';
+        document.getElementById('roundResult').style.display = 'none';
+        document.getElementById('gameOverCard').style.display = 'none';
+        document.getElementById('turnIndicator').style.display = 'block';
+        document.getElementById('turnIndicator').className = 'turn-indicator turn-mine';
+        document.getElementById('turnIndicator').textContent = '对局开始，请出牌！';
+        state.myTurn = true;
+        document.getElementById('btnAIHint').disabled = false;
+        state.hand = [0, 0, 0, 1, 2]; // 初始手牌：3平民国王1奴隶
+        renderHand();
+        showScreen('screen-game');
+        toast('对局开始！');
+    });
+
+    // 对局状态（重连）
+    WS.on(MsgID.BattleState, (id, msg) => {
+        state.battleId = Number(msg.battle_id);
+        state.round = msg.round;
+        state.subRound = msg.sub_round;
+        state.myScore = Number(msg.score1);
+        state.opScore = Number(msg.score2);
+        state.hand = (msg.hand || []).map(Number);
+        state.myTurn = msg.my_turn;
+        document.getElementById('gameOpponent').textContent = '对手: ' + (msg.nickname || '');
+        document.getElementById('gameMyScore').textContent = state.myScore;
+        document.getElementById('gameOpScore').textContent = state.opScore;
+        document.getElementById('gameRound').textContent = `第 ${msg.round} 局 · 第 ${msg.sub_round} 轮`;
+        renderHand();
+        updateTurnUI();
+        showScreen('screen-game');
+    });
+
+    // 出牌响应
+    WS.on(MsgID.PlayCard, (id, msg) => {
+        if (msg.code !== 0) {
+            toast('出牌失败: ' + msg.msg);
+            state.myTurn = true;
+            renderHand();
+            updateTurnUI();
+        }
+    });
+
+    // 回合结果
+    WS.on(MsgID.RoundResult, (id, msg) => {
+        state.myScore = Number(msg.score1);
+        state.opScore = Number(msg.score2);
+        state.round = msg.round;
+        state.subRound = msg.sub_round;
+        document.getElementById('gameMyScore').textContent = state.myScore;
+        document.getElementById('gameOpScore').textContent = state.opScore;
+        document.getElementById('gameRound').textContent = `第 ${msg.round} 局 · 第 ${msg.sub_round} 轮`;
+
+        const names = { 0: '平民', 1: '国王', 2: '奴隶' };
+        const myCard = names[msg.my_card] || '?';
+        const opCard = names[msg.op_card] || '?';
+        const resultEl = document.getElementById('roundResult');
+        resultEl.style.display = 'block';
+
+        if (msg.result === 1) {
+            resultEl.className = 'result-box result-win';
+            resultEl.textContent = `你出 ${myCard} vs 对手 ${opCard} → 你赢了！`;
+        } else if (msg.result === -1) {
+            resultEl.className = 'result-box result-lose';
+            resultEl.textContent = `你出 ${myCard} vs 对手 ${opCard} → 你输了`;
+        } else {
+            resultEl.className = 'result-box result-draw';
+            resultEl.textContent = `你出 ${myCard} vs 对手 ${opCard} → 平局`;
+        }
+
+        if (!msg.game_over) {
+            // 小局结束时重置手牌
+            if (msg.round_over) {
+                state.hand = [0, 0, 0, 1, 2];
+            }
+            state.myTurn = true;
+            renderHand();
+            updateTurnUI();
+            document.getElementById('btnAIHint').disabled = false;
+        }
+    });
+
+    // 对局结束
+    WS.on(MsgID.BattleEnd, (id, msg) => {
+        state.myTurn = false;
+        document.getElementById('handCards').innerHTML = '';
+        document.getElementById('turnIndicator').style.display = 'none';
+
+        const card = document.getElementById('gameOverCard');
+        card.style.display = 'block';
+
+        const title = document.getElementById('gameOverTitle');
+        const score = document.getElementById('gameOverScore');
+
+        if (Number(msg.winner) === state.uid) {
+            title.textContent = '🎉 你赢了！';
+            title.style.color = '#52c41a';
+        } else if (Number(msg.winner) === 0) {
+            title.textContent = '🤝 平局';
+            title.style.color = '#faad14';
+        } else {
+            title.textContent = '😢 你输了';
+            title.style.color = '#ff4d4f';
+        }
+        score.textContent = `${msg.score1} : ${msg.score2}`;
+    });
+
+    // 排行榜
+    WS.on(MsgID.Leaderboard, (id, msg) => {});
+
+    // AI 建议
+    WS.on(MsgID.AIHint, (id, msg) => {
+        const el = document.getElementById('aiResponse');
+        el.classList.add('show');
+        if (msg.code === 0) {
+            const names = { 0: '平民', 1: '国王', 2: '奴隶' };
+            el.innerHTML = `<strong>AI 建议出: ${names[msg.suggested_card] || '?'}</strong><br>${msg.reason || ''}`;
+        } else {
+            el.textContent = msg.msg || 'AI 服务不可用';
+        }
+    });
+
+    // AI 复盘
+    WS.on(MsgID.AIAnalysis, (id, msg) => {
+        const el = document.getElementById('aiResponse');
+        el.classList.add('show');
+        if (msg.code === 0) {
+            el.innerHTML = `<strong>AI 复盘：</strong><br>${msg.analysis || ''}`;
+        } else {
+            el.textContent = msg.msg || 'AI 服务不可用';
+        }
+    });
+
+    // 系统通知
+    WS.on(MsgID.SysNotify, (id, msg) => {
+        toast(msg.content);
+    });
+}
+
+// ========== 启动 ==========
+// Proto 加载状态
+let protoReady = false;
+let protoPromise = null;
+
+async function main() {
+    showScreen('screen-login');
+
+    // 先注册 handler（不依赖 Proto）
+    setupHandlers();
+
+    // 加载 Proto
+    protoPromise = Proto.init().then(() => {
+        protoReady = true;
+        console.log('[Proto] 加载完成');
+    }).catch(e => {
+        console.error('[Proto] 加载失败', e);
+    });
+
+    // 有保存的 token，自动连接并进大厅
+    if (state.token) {
+        connectAndEnter();
+    }
+
+    // 心跳定时器
+    setInterval(() => {
+        if (WS.isConnected()) {
+            WS.send(MsgID.Heartbeat, 'pb.Heartbeat', {});
+        }
+    }, 10000);
+}
+
+main();
+</script>
+</body>
+</html>

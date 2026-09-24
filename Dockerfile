@@ -12,5 +12,6 @@ ENV TZ=Asia/Shanghai
 WORKDIR /app
 COPY --from=builder /app/game-server .
 COPY --from=builder /app/configs ./configs
-EXPOSE 8080
+COPY --from=builder /app/web ./web
+EXPOSE 8080 8081 8082
 CMD ["./game-server", "-config", "configs/config-docker.yaml"]

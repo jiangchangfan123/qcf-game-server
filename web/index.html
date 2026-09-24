@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QCF Game Server</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; }
+  .header { background: linear-gradient(135deg, #1890ff, #722ed1); color: #fff; padding: 30px 0; text-align: center; }
+  .header h1 { font-size: 28px; margin-bottom: 8px; }
+  .header p { opacity: 0.85; font-size: 14px; }
+  .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
+
+  .stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin: 24px 0; }
+  .stat-card { background: #fff; border-radius: 10px; padding: 20px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .stat-card .number { font-size: 32px; font-weight: bold; color: #1890ff; }
+  .stat-card .label { color: #888; margin-top: 6px; font-size: 13px; }
+
+  .section { background: #fff; border-radius: 10px; padding: 24px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .section h2 { font-size: 18px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 12px 10px; text-align: left; border-bottom: 1px solid #f0f0f0; }
+  th { background: #fafafa; font-weight: 600; font-size: 13px; color: #666; }
+  .rank-1 { color: #faad14; font-weight: bold; }
+  .rank-2 { color: #8c8c8c; font-weight: bold; }
+  .rank-3 { color: #b87333; font-weight: bold; }
+  .win { color: #52c41a; font-weight: 600; }
+  .lose { color: #ff4d4f; }
+  .draw { color: #faad14; }
+
+  .tech-stack { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tag { background: #e6f7ff; color: #1890ff; padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; }
+  .tag.green { background: #f6ffed; color: #52c41a; }
+  .tag.purple { background: #f9f0ff; color: #722ed1; }
+  .tag.orange { background: #fff7e6; color: #fa8c16; }
+
+  .ai-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .ai-card { border: 1px solid #f0f0f0; border-radius: 10px; padding: 20px; }
+  .ai-card h3 { font-size: 15px; margin-bottom: 10px; color: #1890ff; }
+  .ai-card p { font-size: 13px; color: #666; line-height: 1.6; }
+  .ai-card .limit { display: inline-block; background: #fff7e6; color: #fa8c16; padding: 2px 8px; border-radius: 4px; font-size: 12px; margin-top: 8px; }
+
+  .empty { text-align: center; padding: 30px; color: #bbb; }
+  .refresh-btn { background: #1890ff; color: #fff; border: none; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  .refresh-btn:hover { background: #40a9ff; }
+
+  @media (max-width: 768px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .ai-cards { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🎮 QCF Game Server</h1>
+  <p>Go 卡牌对战游戏服务器 · TCP + WebSocket · MySQL + Redis + RabbitMQ</p>
+</div>
+
+<div class="container">
+
+  <!-- 实时数据 -->
+  <div class="stats">
+    <div class="stat-card">
+      <div class="number" id="online">-</div>
+      <div class="label">在线玩家</div>
+    </div>
+    <div class="stat-card">
+      <div class="number" id="connections">-</div>
+      <div class="label">TCP 连接</div>
+    </div>
+    <div class="stat-card">
+      <div class="number" id="battles">-</div>
+      <div class="label">进行中对局</div>
+    </div>
+    <div class="stat-card">
+      <div class="number" id="queue">-</div>
+      <div class="label">匹配队列</div>
+    </div>
+    <div class="stat-card">
+      <div class="number" id="rooms">-</div>
+      <div class="label">活跃房间</div>
+    </div>
+  </div>
+
+  <!-- 排行榜 -->
+  <div class="section">
+    <h2>🏆 排行榜 <button class="refresh-btn" onclick="loadLeaderboard()">刷新</button></h2>
+    <table>
+      <thead><tr><th>排名</th><th>玩家 ID</th><th>胜场</th><th>总场次</th><th>胜率</th></tr></thead>
+      <tbody id="leaderboard"><tr><td colspan="5" class="empty">加载中...</td></tr></tbody>
+    </table>
+  </div>
+
+  <!-- 进行中的对局 -->
+  <div class="section">
+    <h2>⚔️ 进行中的对局 <button class="refresh-btn" onclick="loadBattles()">刷新</button></h2>
+    <table>
+      <thead><tr><th>对局 ID</th><th>玩家 1</th><th>玩家 2</th><th>比分</th><th>小局</th><th>状态</th></tr></thead>
+      <tbody id="battles-list"><tr><td colspan="6" class="empty">加载中...</td></tr></tbody>
+    </table>
+  </div>
+
+  <!-- AI 功能 -->
+  <div class="section">
+    <h2>🤖 AI 功能</h2>
+    <div class="ai-cards">
+      <div class="ai-card">
+        <h3>🎯 AI 出牌建议</h3>
+        <p>对局中实时分析当前手牌、比分和历史出牌记录，为玩家推荐最佳出牌策略。</p>
+        <p>接入大模型 API，根据克制关系和对局形势智能推理。</p>
+        <span class="limit">每小局限用 1 次</span>
+        <span class="limit">msgID: 20</span>
+      </div>
+      <div class="ai-card">
+        <h3>📊 AI 对局复盘</h3>
+        <p>对局结束后分析完整对局记录，评价出牌策略，识别对手出牌模式，给出改进建议。</p>
+        <p>支持 OpenAI / 通义千问等兼容 API。</p>
+        <span class="limit">对局结束后可用</span>
+        <span class="limit">msgID: 21</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 技术栈 -->
+  <div class="section">
+    <h2>🛠️ 技术栈</h2>
+    <div class="tech-stack">
+      <span class="tag">Go 1.21+</span>
+      <span class="tag">TCP</span>
+      <span class="tag">WebSocket</span>
+      <span class="tag">Protobuf</span>
+      <span class="tag green">MySQL 8.0</span>
+      <span class="tag green">Redis 6.0</span>
+      <span class="tag purple">RabbitMQ</span>
+      <span class="tag purple">JWT</span>
+      <span class="tag purple">bcrypt</span>
+      <span class="tag orange">Docker</span>
+      <span class="tag orange">LLM AI</span>
+      <span class="tag orange">GORM</span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const API = '';
+
+async function fetchJSON(url) {
+  const res = await fetch(API + url);
+  return res.json();
+}
+
+async function loadStats() {
+  try {
+    const data = await fetchJSON('/api/stats');
+    if (data.code === 0) {
+      const d = data.data;
+      document.getElementById('online').textContent = d.online;
+      document.getElementById('connections').textContent = d.connections;
+      document.getElementById('battles').textContent = d.battles;
+      document.getElementById('queue').textContent = d.queue;
+      document.getElementById('rooms').textContent = d.rooms;
+    }
+  } catch(e) { console.error('stats error', e); }
+}
+
+async function loadLeaderboard() {
+  try {
+    const data = await fetchJSON('/api/leaderboard?top=10');
+    const tbody = document.getElementById('leaderboard');
+    if (data.code !== 0 || !data.data || data.data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty">暂无数据，开始对局后自动更新</td></tr>';
+      return;
+    }
+    const medals = ['🥇', '🥈', '🥉'];
+    tbody.innerHTML = data.data.map((item, i) => {
+      const rankClass = i < 3 ? ` class="rank-${i+1}"` : '';
+      const wr = item.win_rate;
+      const wrClass = wr >= 60 ? 'win' : wr >= 40 ? 'draw' : 'lose';
+      return `<tr>
+        <td${rankClass}>${medals[i] || item.rank}</td>
+        <td>${item.uid}</td>
+        <td>${item.win}</td>
+        <td>${item.total}</td>
+        <td class="${wrClass}">${wr.toFixed(1)}%</td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    document.getElementById('leaderboard').innerHTML = '<tr><td colspan="5" class="empty">加载失败</td></tr>';
+  }
+}
+
+async function loadBattles() {
+  try {
+    const data = await fetchJSON('/api/battles');
+    const tbody = document.getElementById('battles-list');
+    if (data.code !== 0 || !data.data || data.data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty">暂无进行中的对局</td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.data.map(b => `<tr>
+      <td>#${b.id}</td>
+      <td>玩家 ${b.p1}</td>
+      <td>玩家 ${b.p2}</td>
+      <td><strong>${b.score1}</strong> : <strong>${b.score2}</strong></td>
+      <td>第 ${b.round} 局</td>
+      <td>${b.state}</td>
+    </tr>`).join('');
+  } catch(e) {
+    document.getElementById('battles-list').innerHTML = '<tr><td colspan="6" class="empty">加载失败</td></tr>';
+  }
+}
+
+// 初始加载
+loadStats();
+loadLeaderboard();
+loadBattles();
+
+// 定时刷新
+setInterval(loadStats, 3000);
+setInterval(loadLeaderboard, 10000);
+setInterval(loadBattles, 5000);
+</script>
+</body>
+</html>

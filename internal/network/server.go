@@ -212,3 +212,10 @@ func (s *Server) GetConnByUID(uid int64) Conn {
 
 	return nil
 }
+
+// ConnCount 获取当前连接数
+func (s *Server) ConnCount() int {
+	s.connMu.RLock()
+	defer s.connMu.RUnlock()
+	return len(s.connMap)
+}

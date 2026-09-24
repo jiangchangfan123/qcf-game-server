@@ -86,6 +86,13 @@ func (m *MatchManager) CreateRoom(p *PlayerInfo) string {
 	m.roomMu.Lock()
 	defer m.roomMu.Unlock()
 
+	// 检查是否已有房间
+	for _, room := range m.rooms {
+		if room.Creator.UID == p.UID {
+			return room.Code // 已有房间，返回原房间码
+		}
+	}
+
 	code := m.generateRoomCode()
 	m.rooms[code] = &RoomInfo{
 		Code:    code,
@@ -129,4 +136,18 @@ func (m *MatchManager) generateRoomCode() string {
 		code[i] = digits[m.rng.Intn(len(digits))]
 	}
 	return string(code)
+}
+
+// QueueLen 获取匹配队列长度
+func (m *MatchManager) QueueLen() int {
+	m.queueMu.Lock()
+	defer m.queueMu.Unlock()
+	return len(m.queue)
+}
+
+// RoomCount 获取活跃房间数
+func (m *MatchManager) RoomCount() int {
+	m.roomMu.Lock()
+	defer m.roomMu.Unlock()
+	return len(m.rooms)
 }

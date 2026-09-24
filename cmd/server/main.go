@@ -1,6 +1,7 @@
 package main
 
 import (
+	"GameServer/internal/api"
 	"GameServer/internal/config"
 	"GameServer/internal/db"
 	"GameServer/internal/game"
@@ -55,6 +56,9 @@ func main() {
 	// 注册所有游戏消息处理函数，传入 SessionManager
 	game.RegisterHandlers(netServer.Router, netServer.SessionManager, netServer)
 	go netServer.Start() // 此方法会阻塞，持续监听
+
+	// 启动 REST API 服务
+	go api.Start(netServer)
 
 	// 监听系统信号
 	quit := make(chan os.Signal, 1)
