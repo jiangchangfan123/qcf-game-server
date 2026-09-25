@@ -41,7 +41,7 @@ func RegisterBattleHandlers(router *network.Router, srv *network.Server) {
 	router.Register(MsgIDBattleCreateRoom, HandleBattleCreateRoom(srv))
 	router.Register(MsgIDBattleJoinRoom, HandleBattleJoinRoom(srv))
 	router.Register(MsgIDPlayCard, HandlePlayCard(srv))
-	router.Register(MsgIDBattleEnd, HandleBattleChat(srv))
+	router.Register(MsgIDChat, HandleBattleChat(srv))
 }
 
 func InitBattleSystem() {
