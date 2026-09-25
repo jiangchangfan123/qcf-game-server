@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"GameServer/internal/game/logic"
 	"GameServer/internal/network"
 	"GameServer/internal/pb"
 	"GameServer/internal/pkg/jwt"
@@ -121,6 +122,7 @@ func HandleLogin(sm *session.SessionManager) network.HandlerFunc {
 		sm.Add(s)
 		conn.SetSession(s)
 		s.SaveToRedis() // 保存到 Redis
+		logic.SaveNickname(context.Background(), user.ID, user.Nickname) // 保存昵称映射
 		logger.Log.Infof("玩家 %s 登录成功, 在线人数: %d", req.Username, sm.OnlineCount())
 		conn.SetAttribute("token", token)
 
@@ -395,20 +397,19 @@ func HandleAuth(sm *session.SessionManager, srv *network.Server) network.Handler
 		s.ConnID = conn.ID()
 
 		// 踢掉同一 UID 的旧连接
-	if oldSession, exists := sm.GetByUID(claims.UserID); exists {
-		if oldConn, ok := srv.GetConn(oldSession.ConnID); ok {
-			logger.Log.Infof("玩家 %s 重复登录，踢掉旧连接 (conn=%d)", claims.Username, oldSession.ConnID)
-			oldConn.WriteProtoPacket(MsgIDSysNotify, &pb.SystemNotify{Content: "您的账号在其他地方登录"})
+		if oldSession, exists := sm.GetByUID(claims.UserID); exists {
+			if oldConn, ok := srv.GetConn(oldSession.ConnID); ok {
+				oldConn.Close()
+			}
+			if srv.MatchManager != nil {
+				srv.MatchManager.CancelQueue(claims.UserID)
+			}
+			sm.Remove(oldSession.ConnID)
 		}
-		// 先从匹配队列移除，再关连接（避免 defer 里的 CancelQueue 竞争）
-		if srv.MatchManager != nil {
-			srv.MatchManager.CancelQueue(claims.UserID)
-		}
-		sm.Remove(oldSession.ConnID)
-		if oldConn, ok := srv.GetConn(oldSession.ConnID); ok {
-			oldConn.Close()
-		}
-	}
+
+		s.ConnID = conn.ID()
+		s.SaveToRedis()
+		logic.SaveNickname(context.Background(), claims.UserID, claims.Nickname)
 
 		sm.Add(s)
 		conn.SetSession(s)

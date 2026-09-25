@@ -54,3 +54,10 @@ func RoomKey(roomCode string) string {
 func PlayerSessionKey(uid int64) string {
 	return fmt.Sprintf(KeyPlayerSessionPrefix, uid)
 }
+
+// 昵称映射 key (Hash: field=uid, value=nickname)
+const KeyNicknameMap = "nicknames"
+
+func NicknameKey() string {
+	return KeyNicknameMap
+}

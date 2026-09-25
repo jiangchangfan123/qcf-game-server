@@ -706,7 +706,7 @@ body::after{
       <button onclick="toggleUserMenu()">👤 <span id="menuNickname">-</span> ▾</button>
       <div class="user-dropdown" id="userDropdown" style="display:none">
         <div class="logout" onclick="doLogout()">🚪 退出登录</div>
-        <div class="profile" onclick="toast('功能开发中')">✏️ 修改资料</div>
+        <div class="profile" onclick="showProfileModal()">✏️ 修改资料</div>
       </div>
     </div>
   </div>
@@ -844,6 +844,25 @@ body::after{
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
+<!-- 修改资料弹窗 -->
+<div class="game-over-overlay" id="profileModal">
+  <div class="game-over-card" style="min-width:280px">
+    <h2 style="font-size:18px;letter-spacing:4px;color:#c9a44a;margin-bottom:20px">修改资料</h2>
+    <div style="text-align:left;margin-bottom:16px">
+      <label style="font-size:11px;color:#665544;display:block;margin-bottom:4px">当前昵称</label>
+      <div style="font-size:14px;color:#e0d5c1;padding:8px;background:#0d0808;border-radius:4px" id="profileCurrentNick">-</div>
+    </div>
+    <div style="text-align:left;margin-bottom:20px">
+      <label style="font-size:11px;color:#665544;display:block;margin-bottom:4px">新昵称</label>
+      <input type="text" id="profileNicknameInput" placeholder="输入新昵称" style="width:100%;padding:8px;background:#0d0808;border:1px solid #2a1515;border-radius:4px;color:#e0d5c1;font-size:13px;outline:none">
+    </div>
+    <div style="display:flex;gap:8px;justify-content:center">
+      <button class="btn btn-outline btn-sm" onclick="hideProfileModal()" style="width:80px">取消</button>
+      <button class="btn btn-gold btn-sm" onclick="updateNickname()" style="width:80px">确认</button>
+    </div>
+  </div>
+</div>
+
 <script src="/js/protobuf.min.js"></script>
 <script src="/js/proto.js"></script>
 <script src="/js/ws.js"></script>
@@ -946,7 +965,13 @@ async function connectAndEnter() {
         toast('协议加载失败，请刷新页面');
         return;
     }
-    try { await WS.connect('ws://localhost:8081/ws'); } catch(e) {}
+    try {
+        await WS.connect('ws://localhost:8081/ws');
+    } catch(e) {
+        toast('连接服务器失败，请稍后重试');
+        document.getElementById('statusText').textContent = '连接失败';
+        return;
+    }
     WS.send(MsgID.Auth, 'pb.AuthRequest', {token: state.token});
 }
 
@@ -1138,7 +1163,7 @@ async function loadLeaderboard() {
         const medals = ['🥇','🥈','🥉'];
         tbody.innerHTML = data.data.map((item, i) => {
             const rc = i < 3 ? ` class="rank-${i+1}"` : '';
-            return `<tr><td${rc}>${medals[i]||item.rank}</td><td>${item.uid}</td><td>${item.win}</td><td>${item.total}</td><td>${item.win_rate.toFixed(1)}%</td></tr>`;
+            return `<tr><td${rc}>${medals[i]||item.rank}</td><td>${item.nickname||item.uid}</td><td>${item.win}</td><td>${item.total}</td><td>${item.win_rate.toFixed(1)}%</td></tr>`;
         }).join('');
     } catch(e) {}
 }
@@ -1154,6 +1179,38 @@ async function loadStats() {
     } catch(e) {}
 }
 
+function updateNickname() {
+    const nickname = document.getElementById('profileNicknameInput').value.trim();
+    if (!nickname) { toast('请输入昵称'); return; }
+    fetch('/api/profile', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + state.token,
+        },
+        body: JSON.stringify({ nickname: nickname }),
+    }).then(r => r.json()).then(data => {
+        toast(data.msg);
+        if (data.code === 0) {
+            state.nickname = data.nickname;
+            localStorage.setItem('nickname', state.nickname);
+            document.getElementById('menuNickname').textContent = state.nickname;
+            hideProfileModal();
+        }
+    }).catch(() => toast('网络错误'));
+}
+
+function showProfileModal() {
+    document.getElementById('userDropdown').style.display = 'none';
+    document.getElementById('profileCurrentNick').textContent = state.nickname || '-';
+    document.getElementById('profileNicknameInput').value = '';
+    document.getElementById('profileModal').classList.add('show');
+}
+
+function hideProfileModal() {
+    document.getElementById('profileModal').classList.remove('show');
+}
+
 // ========== 消息处理器 ==========
 function setupHandlers() {
     WS.on(MsgID.Heartbeat, () => {});
@@ -1166,6 +1223,8 @@ function setupHandlers() {
             localStorage.setItem('nickname', state.nickname);
             document.getElementById('userMenu').style.display = 'block';
             document.getElementById('menuNickname').textContent = state.nickname || '玩家';
+            var nickEl = document.getElementById('currentNickname');
+            if (nickEl) nickEl.textContent = state.nickname || '-';
             toast('进入赌局');
             goLobby();
         } else {
@@ -1227,6 +1286,8 @@ function setupHandlers() {
         renderHand();
         renderOpCards();
         document.getElementById('chatMessages').innerHTML = '';
+        document.getElementById('aiResponse').textContent = '';
+        document.getElementById('aiResponse').className = 'ai-response';
         showScreen('screen-game');
         toast('对局开始');
     });
@@ -1323,10 +1384,13 @@ function setupHandlers() {
 
     WS.on(MsgID.AIHint, (id, msg) => {
         const el = document.getElementById('aiResponse');
-        document.getElementById('btnAIHint').disabled = false;
         if (msg.code === 0) {
             el.innerHTML = `<b>建议出: ${CARD_NAMES[msg.suggested_card]||'?'}</b> ${msg.reason||''}`;
-        } else { el.textContent = msg.msg || 'AI 服务不可用'; }
+            // 成功，按钮保持禁用，等下一小局再启用
+        } else {
+            el.textContent = msg.msg || 'AI 服务不可用';
+            document.getElementById('btnAIHint').disabled = false;
+        }
     });
 
     WS.on(MsgID.AIAnalysis, (id, msg) => {

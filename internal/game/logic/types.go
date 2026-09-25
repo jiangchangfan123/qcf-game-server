@@ -35,10 +35,11 @@ type RoomInfo struct {
 
 // LeaderboardEntry 排行榜条目
 type LeaderboardEntry struct {
-	UID     int64
-	Win     int64
-	Total   int64
-	WinRate float64
+	UID      int64
+	Nickname string
+	Win      int64
+	Total    int64
+	WinRate  float64
 }
 
 // PlayerStats 玩家战绩统计（用于 Redis Hash）

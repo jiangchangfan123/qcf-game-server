@@ -47,3 +47,19 @@ func ExistByUsername(ctx context.Context, username string) (bool, error) {
 	}
 	return true, nil
 }
+
+func FindByID(ctx context.Context, id int64) (*User, error) {
+	var user User
+	err := db.DB.WithContext(ctx).Where("id = ?", id).First(&user).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (u *User) UpdateNickname(ctx context.Context, nickname string) error {
+	return db.DB.WithContext(ctx).Model(u).Update("nickname", nickname).Error
+}

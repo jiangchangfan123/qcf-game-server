@@ -34,6 +34,7 @@ func Start(srv *network.Server) {
 	apiMux.HandleFunc("/api/register", handleRegister)
 	apiMux.HandleFunc("/api/login", handleLogin)
 	apiMux.HandleFunc("/api/logout", handleLogout)
+	apiMux.HandleFunc("/api/profile", handleProfile)
 
 	// 静态文件 + API
 	mux.Handle("/api/", apiMux)
@@ -89,17 +90,18 @@ func handleLeaderboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type item struct {
-		Rank    int     `json:"rank"`
-		UID     int64   `json:"uid"`
-		Win     int64   `json:"win"`
-		Total   int64   `json:"total"`
-		WinRate float64 `json:"win_rate"`
+		Rank     int     `json:"rank"`
+		UID      int64   `json:"uid"`
+		Nickname string  `json:"nickname"`
+		Win      int64   `json:"win"`
+		Total    int64   `json:"total"`
+		WinRate  float64 `json:"win_rate"`
 	}
 
 	items := make([]item, 0, len(entries))
 	for i, e := range entries {
 		items = append(items, item{
-			Rank: i + 1, UID: e.UID, Win: e.Win,
+			Rank: i + 1, UID: e.UID, Nickname: e.Nickname, Win: e.Win,
 			Total: e.Total, WinRate: e.WinRate,
 		})
 	}
@@ -389,4 +391,53 @@ func handleLogout(w http.ResponseWriter, r *http.Request) {
 
 	logger.Log.Infof("用户登出: %s (ID: %d)", claims.Username, claims.UserID)
 	jsonResponse(w, map[string]interface{}{"code": 0, "msg": "登出成功"})
+}
+
+func handleProfile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		jsonResponse(w, map[string]interface{}{"code": 1, "msg": "POST only"})
+		return
+	}
+
+	token := r.Header.Get("Authorization")
+	if len(token) > 7 && token[:7] == "Bearer " {
+		token = token[7:]
+	}
+	claims, err := jwt.ValidateToken(token)
+	if err != nil {
+		jsonResponse(w, map[string]interface{}{"code": 1, "msg": "未登录"})
+		return
+	}
+
+	var req struct {
+		Nickname string `json:"nickname"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonResponse(w, map[string]interface{}{"code": 1, "msg": "请求格式错误"})
+		return
+	}
+
+	if req.Nickname == "" {
+		jsonResponse(w, map[string]interface{}{"code": 2, "msg": "昵称不能为空"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	user, err := models.FindByID(ctx, claims.UserID)
+	if err != nil || user == nil {
+		jsonResponse(w, map[string]interface{}{"code": 1, "msg": "用户不存在"})
+		return
+	}
+
+	if err := user.UpdateNickname(ctx, req.Nickname); err != nil {
+		jsonResponse(w, map[string]interface{}{"code": 500, "msg": "修改失败"})
+		return
+	}
+
+	logic.SaveNickname(ctx, claims.UserID, req.Nickname)
+
+	logger.Log.Infof("用户 %s 修改昵称为: %s", claims.Username, req.Nickname)
+	jsonResponse(w, map[string]interface{}{"code": 0, "msg": "修改成功", "nickname": req.Nickname})
 }
