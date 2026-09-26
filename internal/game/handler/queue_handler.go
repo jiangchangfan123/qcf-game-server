@@ -24,26 +24,33 @@ type BattleEndEvent struct {
 	Duration int32 `json:"duration"`
 }
 
-// 发布对局结束事件到消息队列
+// 发布对局结束事件到消息队列（带重试）
 func PublishBattleEnd(event *BattleEndEvent) error {
 	data, err := json.Marshal(event)
 	if err != nil {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	return db.MQ.PublishWithContext(ctx,
-		"",
-		"battle_end",
-		false,
-		false,
-		amqp.Publishing{
-			ContentType: "application/json",
-			Body:        data,
-		},
-	)
+	maxRetries := 3
+	for i := 0; i < maxRetries; i++ {
+		err = db.MQ.PublishWithContext(
+			context.Background(),
+			"",
+			"battle_end",
+			false,
+			false,
+			amqp.Publishing{
+				ContentType: "application/json",
+				Body:        data,
+			},
+		)
+		if err == nil {
+			return nil
+		}
+		logger.Log.Warnf("发布对局结束消息失败 (第%d次): %v", i+1, err)
+		time.Sleep(time.Duration(i+1) * 100 * time.Millisecond)
+	}
+	return err
 }
 
 // 启动对局结束消费者
@@ -59,23 +66,33 @@ func StartBattleEndConsumer() {
 			var event BattleEndEvent
 			if err := json.Unmarshal(msg.Body, &event); err != nil {
 				logger.Log.Errorf("解析对局结束消息失败: %v", err)
-				msg.Nack(false, false)
+				msg.Nack(false, false) // 解析失败，直接丢弃
 				continue
 			}
 
-			processBattleEnd(&event)
-			msg.Ack(false)
+			if err := processBattleEnd(&event); err != nil {
+				// 检查是否已经重试过
+				retryCount, _ := msg.Headers["x-retry-count"].(int32)
+				if retryCount < 3 {
+					logger.Log.Warnf("处理失败，重试第%d次: %v", retryCount+1, err)
+					msg.Nack(false, false)
+				} else {
+					logger.Log.Errorf("处理失败超过3次，丢弃消息: battle=%d", event.BattleID)
+					msg.Ack(false) // 超过重试次数，丢弃
+				}
+			} else {
+				msg.Ack(false)
+			}
 		}
 	}()
 
 	logger.Log.Info("对局结束消费者已启动")
 }
 
-func processBattleEnd(event *BattleEndEvent) {
+func processBattleEnd(event *BattleEndEvent) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	//保存对局记录
 	// 保存对局记录
 	record := &models.GameRecord{
 		Player1:  event.Player1,
@@ -88,6 +105,7 @@ func processBattleEnd(event *BattleEndEvent) {
 	}
 	if err := models.SaveRecord(ctx, record); err != nil {
 		logger.Log.Errorf("异步保存对局记录失败: %v", err)
+		return err
 	}
 
 	// 更新排行榜
@@ -103,4 +121,5 @@ func processBattleEnd(event *BattleEndEvent) {
 
 	logger.Log.Infof("异步处理对局 %d 结束: 玩家%d vs 玩家%d, 赢家=%d",
 		event.BattleID, event.Player1, event.Player2, event.Winner)
+	return nil
 }
