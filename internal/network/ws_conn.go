@@ -22,6 +22,7 @@ type WSConn struct {
 	attributes    map[string]interface{}
 	attrMu        sync.RWMutex
 	lastHeartbeat time.Time
+	limiter       *TokenBucket
 }
 
 func NewWSConn(ws *websocket.Conn) *WSConn {
@@ -30,12 +31,14 @@ func NewWSConn(ws *websocket.Conn) *WSConn {
 		ws:            ws,
 		attributes:    make(map[string]interface{}),
 		lastHeartbeat: time.Now(),
+		limiter:       NewTokenBucket(20, 50),
 	}
 }
 
 func (c *WSConn) ID() uint64              { return c.id }
 func (c *WSConn) SetSession(s interface{}) { c.session = s }
 func (c *WSConn) GetSession() interface{}  { return c.session }
+func (c *WSConn) Allow() bool              { return c.limiter.Allow() }
 
 func (c *WSConn) GetAttribute(key string) interface{} {
 	c.attrMu.RLock()

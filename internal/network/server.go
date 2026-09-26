@@ -161,6 +161,13 @@ func (s *Server) handleConnection(conn Conn) {
 				conn.RemoteAddr().String(), err)
 			return
 		}
+
+		// 限流检查
+		if !conn.Allow() {
+			logger.Log.Warnf("连接 %s 触发限流，丢弃消息 msgID=%d", conn.RemoteAddr().String(), pkt.MsgID)
+			continue
+		}
+
 		logger.Log.Infof("Received from %s: %s", conn.RemoteAddr().String(), pkt.String())
 
 		s.Router.Handle(conn, pkt)

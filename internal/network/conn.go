@@ -28,6 +28,45 @@ type Conn interface {
 	RemoteAddr() net.Addr
 	UpdateHeartbeat()
 	GetLastHeartbeat() time.Time
+	Allow() bool // 限流检查
+}
+
+// TokenBucket 令牌桶限流器
+type TokenBucket struct {
+	tokens    float64
+	maxTokens float64
+	rate      float64
+	lastTime  time.Time
+	mu        sync.Mutex
+}
+
+func NewTokenBucket(rate, maxTokens float64) *TokenBucket {
+	return &TokenBucket{
+		tokens:    maxTokens,
+		maxTokens: maxTokens,
+		rate:      rate,
+		lastTime:  time.Now(),
+	}
+}
+
+func (tb *TokenBucket) Allow() bool {
+	tb.mu.Lock()
+	defer tb.mu.Unlock()
+
+	now := time.Now()
+	elapsed := now.Sub(tb.lastTime).Seconds()
+	tb.lastTime = now
+
+	tb.tokens += elapsed * tb.rate
+	if tb.tokens > tb.maxTokens {
+		tb.tokens = tb.maxTokens
+	}
+
+	if tb.tokens < 1 {
+		return false
+	}
+	tb.tokens--
+	return true
 }
 
 // TCPConn TCP连接实现
@@ -41,6 +80,7 @@ type TCPConn struct {
 	attributes    map[string]interface{}
 	attrMu        sync.RWMutex
 	lastHeartbeat time.Time
+	limiter       *TokenBucket
 }
 
 func NewTCPConn(raw net.Conn) *TCPConn {
@@ -51,12 +91,14 @@ func NewTCPConn(raw net.Conn) *TCPConn {
 		writer:        bufio.NewWriter(raw),
 		attributes:    make(map[string]interface{}),
 		lastHeartbeat: time.Now(),
+		limiter:       NewTokenBucket(20, 50),
 	}
 }
 
 func (c *TCPConn) ID() uint64              { return c.id }
 func (c *TCPConn) SetSession(s interface{}) { c.session = s }
 func (c *TCPConn) GetSession() interface{}  { return c.session }
+func (c *TCPConn) Allow() bool              { return c.limiter.Allow() }
 
 func (c *TCPConn) GetAttribute(key string) interface{} {
 	c.attrMu.RLock()
