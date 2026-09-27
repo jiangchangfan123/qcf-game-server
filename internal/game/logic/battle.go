@@ -257,6 +257,26 @@ func (b *Battle) AutoPlay(uid int64) (roundResult, gameOver bool, p1Score, p2Sco
 	return b.doPlay(uid, hand.Cards[0])
 }
 
+// Surrender 投降，返回赢家 UID，如果对局已结束返回 0
+func (b *Battle) Surrender(uid int64) (winner int64, s1, s2 int32) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	if b.State == BattleFinished {
+		return 0, b.Score1, b.Score2
+	}
+
+	if b.Hand1.UID == uid {
+		winner = b.Hand2.UID
+	} else {
+		winner = b.Hand1.UID
+	}
+
+	b.State = BattleFinished
+	b.Winner = winner
+	return winner, b.Score1, b.Score2
+}
+
 // CanUseHint 检查玩家是否还能用AI建议
 func (b *Battle) CanUseHint(uid int64) bool {
 	b.mu.Lock()

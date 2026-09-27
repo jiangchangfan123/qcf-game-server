@@ -29,6 +29,7 @@ const (
 	MsgIDRoundResult      = 15 // 回合结果（推送）
 	MsgIDBattleEnd        = 16 // 对局结束（推送）
 	MsgIDOpponentPlayed   = 22 // 对手已出牌通知
+	MsgIDSurrender        = 23 // 投降
 )
 
 // RegisterBattleHandlers 注册对战相关的 Handler
@@ -42,6 +43,7 @@ func RegisterBattleHandlers(router *network.Router, srv *network.Server) {
 	router.Register(MsgIDBattleJoinRoom, HandleBattleJoinRoom(srv))
 	router.Register(MsgIDPlayCard, HandlePlayCard(srv))
 	router.Register(MsgIDChat, HandleBattleChat(srv))
+	router.Register(MsgIDSurrender, HandleSurrender(srv))
 }
 
 func InitBattleSystem() {
@@ -500,5 +502,38 @@ func HandleBattleChat(srv *network.Server) network.HandlerFunc {
 			msg.Nickname = player.Nickname
 			opConn.WriteProtoPacket(MsgIDChat, msg)
 		}
+	}
+}
+
+// HandleSurrender 投降（主动退出判负）
+func HandleSurrender(srv *network.Server) network.HandlerFunc {
+	return func(conn network.Conn, pkt *network.Packet) {
+		req := &pb.SurrenderRequest{}
+		if err := proto.Unmarshal(pkt.Data, req); err != nil {
+			return
+		}
+
+		s := conn.GetSession()
+		if s == nil {
+			return
+		}
+		player := s.(*session.Session)
+
+		battle := battleManager.Get(req.BattleId)
+		if battle == nil {
+			return
+		}
+
+		winner, s1, s2 := battle.Surrender(player.UID)
+		if winner == 0 {
+			return // 对局已结束
+		}
+
+		// 通知双方
+		notifyBattleEnd(srv, battle, req.BattleId, s1, s2, winner)
+		battleManager.Remove(req.BattleId)
+		timer.StopBattleTimerGlobal(req.BattleId)
+
+		logger.Log.Infof("玩家 %d 投降，对局 %d 结束，赢家 %d", player.UID, req.BattleId, winner)
 	}
 }

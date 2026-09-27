@@ -2192,6 +2192,103 @@ func (x *OpponentPlayedNotify) GetBattleId() int64 {
 	return 0
 }
 
+// 投降
+type SurrenderRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	BattleId      int64                  `protobuf:"varint,1,opt,name=battle_id,json=battleId,proto3" json:"battle_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SurrenderRequest) Reset() {
+	*x = SurrenderRequest{}
+	mi := &file_proto_messages_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SurrenderRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SurrenderRequest) ProtoMessage() {}
+
+func (x *SurrenderRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_messages_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SurrenderRequest.ProtoReflect.Descriptor instead.
+func (*SurrenderRequest) Descriptor() ([]byte, []int) {
+	return file_proto_messages_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *SurrenderRequest) GetBattleId() int64 {
+	if x != nil {
+		return x.BattleId
+	}
+	return 0
+}
+
+type SurrenderResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SurrenderResponse) Reset() {
+	*x = SurrenderResponse{}
+	mi := &file_proto_messages_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SurrenderResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SurrenderResponse) ProtoMessage() {}
+
+func (x *SurrenderResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_messages_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SurrenderResponse.ProtoReflect.Descriptor instead.
+func (*SurrenderResponse) Descriptor() ([]byte, []int) {
+	return file_proto_messages_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *SurrenderResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *SurrenderResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
 var File_proto_messages_proto protoreflect.FileDescriptor
 
 const file_proto_messages_proto_rawDesc = "" +
@@ -2335,7 +2432,12 @@ const file_proto_messages_proto_rawDesc = "" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x1a\n" +
 	"\banalysis\x18\x03 \x01(\tR\banalysis\"3\n" +
 	"\x14OpponentPlayedNotify\x12\x1b\n" +
-	"\tbattle_id\x18\x01 \x01(\x03R\bbattleIdB\x0fZ\r./internal/pbb\x06proto3"
+	"\tbattle_id\x18\x01 \x01(\x03R\bbattleId\"/\n" +
+	"\x10SurrenderRequest\x12\x1b\n" +
+	"\tbattle_id\x18\x01 \x01(\x03R\bbattleId\"9\n" +
+	"\x11SurrenderResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msgB\x0fZ\r./internal/pbb\x06proto3"
 
 var (
 	file_proto_messages_proto_rawDescOnce sync.Once
@@ -2349,7 +2451,7 @@ func file_proto_messages_proto_rawDescGZIP() []byte {
 	return file_proto_messages_proto_rawDescData
 }
 
-var file_proto_messages_proto_msgTypes = make([]protoimpl.MessageInfo, 38)
+var file_proto_messages_proto_msgTypes = make([]protoimpl.MessageInfo, 40)
 var file_proto_messages_proto_goTypes = []any{
 	(*Heartbeat)(nil),                // 0: pb.Heartbeat
 	(*LoginRequest)(nil),             // 1: pb.LoginRequest
@@ -2389,6 +2491,8 @@ var file_proto_messages_proto_goTypes = []any{
 	(*AIAnalysisRequest)(nil),        // 35: pb.AIAnalysisRequest
 	(*AIAnalysisResponse)(nil),       // 36: pb.AIAnalysisResponse
 	(*OpponentPlayedNotify)(nil),     // 37: pb.OpponentPlayedNotify
+	(*SurrenderRequest)(nil),         // 38: pb.SurrenderRequest
+	(*SurrenderResponse)(nil),        // 39: pb.SurrenderResponse
 }
 var file_proto_messages_proto_depIdxs = []int32{
 	29, // 0: pb.LeaderboardResponse.items:type_name -> pb.LeaderboardItem
@@ -2411,7 +2515,7 @@ func file_proto_messages_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_messages_proto_rawDesc), len(file_proto_messages_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   38,
+			NumMessages:   40,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

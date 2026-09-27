@@ -233,5 +233,15 @@ message OpponentPlayedNotify {
   int64 battle_id = 1;
 }
 
+// 投降
+message SurrenderRequest {
+  int64 battle_id = 1;
+}
+
+message SurrenderResponse {
+  int32 code = 1;
+  string msg = 2;
+}
+
 
 

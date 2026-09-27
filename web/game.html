@@ -912,7 +912,7 @@ const MsgID = {
     BattleCreateRoom: 11, BattleJoinRoom: 12, BattleStart: 13,
     PlayCard: 14, RoundResult: 15, BattleEnd: 16,
     Leaderboard: 17, BattleRecords: 18, BattleState: 19,
-    AIHint: 20, AIAnalysis: 21, OpponentPlayed: 22,
+    AIHint: 20, AIAnalysis: 21, OpponentPlayed: 22, Surrender: 23,
 };
 
 const CARD_ICONS = {0:'🛡️', 1:'👑', 2:'⛓️'};
@@ -1006,6 +1006,11 @@ document.addEventListener('click', (e) => {
 
 // ========== 大厅 ==========
 function goLobby() {
+    // 如果在对局中，先投降
+    if (state.battleId) {
+        if (!confirm('退出将判定为投降，确定退出？')) return;
+        WS.send(MsgID.Surrender, 'pb.SurrenderRequest', {battle_id: state.battleId});
+    }
     state.battleId = 0; state.hand = []; state.myTurn = false;
     state.matching = false; state.pendingCard = null;
     document.getElementById('btnMatch').style.display = 'block';
