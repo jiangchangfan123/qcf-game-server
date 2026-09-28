@@ -37,6 +37,25 @@ func RegisterBattleHandlers(router *network.Router, srv *network.Server) {
 	InitBattleSystem()
 	srv.MatchManager = matchManager
 
+	// 断线自动投降
+	srv.OnDisconnect = func(uid int64) {
+		battle := battleManager.GetByPlayer(uid)
+		if battle == nil {
+			return
+		}
+
+		winner, s1, s2 := battle.Surrender(uid)
+		if winner == 0 {
+			return
+		}
+
+		notifyBattleEnd(srv, battle, battle.ID, s1, s2, winner)
+		battleManager.Remove(battle.ID)
+		timer.StopBattleTimerGlobal(battle.ID)
+
+		logger.Log.Infof("玩家 %d 断线，对局 %d 自动判负，赢家 %d", uid, battle.ID, winner)
+	}
+
 	router.Register(MsgIDMatch, HandleMatch(srv))
 	router.Register(MsgIDMatchCancel, HandleMatchCancel())
 	router.Register(MsgIDBattleCreateRoom, HandleBattleCreateRoom(srv))

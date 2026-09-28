@@ -24,6 +24,7 @@ type Server struct {
 	Router         *Router
 	SessionManager *session.SessionManager
 	MatchManager   interface{ CancelQueue(uid int64) bool }
+	OnDisconnect   func(uid int64) // 断线回调（由 handler 层设置）
 	connMap        map[uint64]Conn
 	connMu         sync.RWMutex
 	activeConns    int64
@@ -143,6 +144,10 @@ func (s *Server) handleConnection(conn Conn) {
 			sess := conn.GetSession().(*session.Session)
 			if s.MatchManager != nil {
 				s.MatchManager.CancelQueue(sess.UID)
+			}
+			// 断线时自动投降
+			if s.OnDisconnect != nil {
+				s.OnDisconnect(sess.UID)
 			}
 		}
 
