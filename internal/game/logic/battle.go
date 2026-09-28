@@ -318,6 +318,40 @@ func (b *Battle) FormatHand(uid int64) string {
 	return result
 }
 
+// FormatOpponentHand 格式化对手剩余手牌（根据历史推算）
+func (b *Battle) FormatOpponentHand(uid int64) string {
+	// 初始手牌：3平民+1国王+1奴隶
+	counts := map[CardType]int{CardCommoner: 3, CardKing: 1, CardSlave: 1}
+	isP1 := b.Hand1.UID == uid
+
+	for _, r := range b.History {
+		var opCard CardType
+		if isP1 {
+			opCard = r.Card2
+		} else {
+			opCard = r.Card1
+		}
+		counts[opCard]--
+	}
+
+	names := map[CardType]string{CardCommoner: "平民", CardKing: "国王", CardSlave: "奴隶"}
+	result := ""
+	first := true
+	for card, count := range counts {
+		for i := 0; i < count; i++ {
+			if !first {
+				result += ", "
+			}
+			result += names[card]
+			first = false
+		}
+	}
+	if result == "" {
+		result = "无"
+	}
+	return result
+}
+
 // FormatHistory 格式化对局历史文本（给 AI 用）
 func (b *Battle) FormatHistory(uid int64) string {
 	if len(b.History) == 0 {

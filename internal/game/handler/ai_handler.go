@@ -58,14 +58,31 @@ func HandleAIHint(srv *network.Server) network.HandlerFunc {
 
 		// 获取快照（异步用）
 		hand := battle.FormatHand(player.UID)
+		opHand := battle.FormatOpponentHand(player.UID)
 		myScore, opScore := battle.GetScore(player.UID)
+		history := battle.FormatHistory(player.UID)
 
 		// 异步调用 LLM
 		go func() {
-			systemPrompt := "你是卡牌对战AI。规则：国王克平民，平民克奴隶，奴隶克国王。根据当前局面建议出牌。直接回复格式：\n牌型:0/1/2\n理由:一句话"
+			systemPrompt := `你是卡牌对战AI助手。严格遵守以下规则：
+1. 牌型编号：0=平民, 1=国王, 2=奴隶
+2. 克制关系：国王克平民，平民克奴隶，奴隶克国王
+3. 你只能建议玩家手中还有的牌！
+4. 回复格式必须严格遵守：
+牌型:数字
+理由:一句话
 
-			userPrompt := fmt.Sprintf(`比分：%d:%d，手牌：%s。建议出什么？`,
-				myScore, opScore, hand)
+示例：如果玩家手牌是"平民,平民,国王"，你可以建议 0 或 1，不能建议 2（奴隶不在手牌中）`
+
+			userPrompt := fmt.Sprintf(`当前局面：
+- 我的比分：%d
+- 对手比分：%d
+- 我的手牌（只能从这里选）：%s
+- 对手可能还有的牌：%s
+- 历史出牌：%s
+
+请从我的手牌中选择最佳出牌。只能建议手牌中有的牌型！`,
+				myScore, opScore, hand, opHand, history)
 
 			reply, err := llm.Chat(systemPrompt, userPrompt)
 			if err != nil {
