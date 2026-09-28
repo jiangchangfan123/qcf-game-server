@@ -1,7 +1,9 @@
 package logic_test
 
 import (
+	"GameServer/internal/db"
 	"GameServer/internal/game/logic"
+	"context"
 	"testing"
 )
 
@@ -16,9 +18,23 @@ func player(uid int64) *logic.PlayerInfo {
 	return &logic.PlayerInfo{UID: uid, Nickname: "test"}
 }
 
+func redisAvailable() bool {
+	if db.RDB == nil {
+		return false
+	}
+	return db.RDB.Ping(context.Background()).Err() == nil
+}
+
+func skipIfNoRedis(t *testing.T) {
+	if !redisAvailable() {
+		t.Skip("Redis not available, skipping")
+	}
+}
+
 // ====== JoinQueue 测试 ======
 
 func TestMatchManager_SoloJoinQueue(t *testing.T) {
+	skipIfNoRedis(t)
 	mm, _ := newTestMatchManager()
 
 	result, ok := mm.JoinQueue(player(1001))
@@ -31,6 +47,7 @@ func TestMatchManager_SoloJoinQueue(t *testing.T) {
 }
 
 func TestMatchManager_MatchSuccess(t *testing.T) {
+	skipIfNoRedis(t)
 	mm, bm := newTestMatchManager()
 
 	mm.JoinQueue(player(1001))
@@ -57,6 +74,7 @@ func TestMatchManager_MatchSuccess(t *testing.T) {
 }
 
 func TestMatchManager_DuplicateJoin(t *testing.T) {
+	skipIfNoRedis(t)
 	mm, _ := newTestMatchManager()
 
 	mm.JoinQueue(player(1001))
@@ -71,6 +89,7 @@ func TestMatchManager_DuplicateJoin(t *testing.T) {
 }
 
 func TestMatchManager_AlreadyInBattle(t *testing.T) {
+	skipIfNoRedis(t)
 	mm, _ := newTestMatchManager()
 
 	// 先匹配一局
@@ -88,6 +107,7 @@ func TestMatchManager_AlreadyInBattle(t *testing.T) {
 }
 
 func TestMatchManager_ThreePlayers(t *testing.T) {
+	skipIfNoRedis(t)
 	mm, _ := newTestMatchManager()
 
 	mm.JoinQueue(player(1001))
@@ -106,6 +126,7 @@ func TestMatchManager_ThreePlayers(t *testing.T) {
 // ====== CancelQueue 测试 ======
 
 func TestMatchManager_CancelQueue(t *testing.T) {
+	skipIfNoRedis(t)
 	mm, _ := newTestMatchManager()
 
 	mm.JoinQueue(player(1001))
@@ -122,6 +143,7 @@ func TestMatchManager_CancelQueue(t *testing.T) {
 }
 
 func TestMatchManager_CancelQueue_NotInQueue(t *testing.T) {
+	skipIfNoRedis(t)
 	mm, _ := newTestMatchManager()
 
 	ok := mm.CancelQueue(9999)
@@ -131,6 +153,7 @@ func TestMatchManager_CancelQueue_NotInQueue(t *testing.T) {
 }
 
 func TestMatchManager_CancelThenMatch(t *testing.T) {
+	skipIfNoRedis(t)
 	mm, _ := newTestMatchManager()
 
 	mm.JoinQueue(player(1001))
@@ -146,6 +169,7 @@ func TestMatchManager_CancelThenMatch(t *testing.T) {
 // ====== CreateRoom / JoinRoom 测试 ======
 
 func TestMatchManager_CreateRoom(t *testing.T) {
+	skipIfNoRedis(t)
 	mm, _ := newTestMatchManager()
 
 	code := mm.CreateRoom(player(1001))
@@ -155,6 +179,7 @@ func TestMatchManager_CreateRoom(t *testing.T) {
 }
 
 func TestMatchManager_JoinRoom_Success(t *testing.T) {
+	skipIfNoRedis(t)
 	mm, bm := newTestMatchManager()
 
 	code := mm.CreateRoom(player(1001))
@@ -172,6 +197,7 @@ func TestMatchManager_JoinRoom_Success(t *testing.T) {
 }
 
 func TestMatchManager_JoinRoom_NotExist(t *testing.T) {
+	skipIfNoRedis(t)
 	mm, _ := newTestMatchManager()
 
 	result, ok := mm.JoinRoom("000000", player(1002))
@@ -184,6 +210,7 @@ func TestMatchManager_JoinRoom_NotExist(t *testing.T) {
 }
 
 func TestMatchManager_JoinRoom_SelfJoin(t *testing.T) {
+	skipIfNoRedis(t)
 	mm, _ := newTestMatchManager()
 
 	code := mm.CreateRoom(player(1001))
@@ -198,6 +225,7 @@ func TestMatchManager_JoinRoom_SelfJoin(t *testing.T) {
 }
 
 func TestMatchManager_JoinRoom_AfterJoin(t *testing.T) {
+	skipIfNoRedis(t)
 	mm, _ := newTestMatchManager()
 
 	code := mm.CreateRoom(player(1001))
@@ -216,6 +244,7 @@ func TestMatchManager_JoinRoom_AfterJoin(t *testing.T) {
 // ====== generateRoomCode 唯一性 ======
 
 func TestMatchManager_RoomCodeUnique(t *testing.T) {
+	skipIfNoRedis(t)
 	mm, _ := newTestMatchManager()
 
 	codes := make(map[string]bool)

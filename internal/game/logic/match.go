@@ -1,124 +1,158 @@
 package logic
 
 import (
+	"GameServer/internal/db"
+	"context"
+	"encoding/json"
+	"fmt"
 	"math/rand"
+	"strconv"
 	"sync"
 	"time"
 )
 
 // MatchManager 匹配管理器
 type MatchManager struct {
-	queueMu sync.Mutex    // 保护 queue
-	queue   []*PlayerInfo // 随机匹配队列
-
-	roomMu sync.Mutex           // 保护 rooms
-	rooms  map[string]*RoomInfo // 房间码 → 房间信息
-
+	mu  sync.Mutex
 	bm  *BattleManager
-	rng *rand.Rand // 共享随机数生成器，由 roomMu 保护
+	rng *rand.Rand
 }
 
 func NewMatchManager(bm *BattleManager) *MatchManager {
 	return &MatchManager{
-		queue: make([]*PlayerInfo, 0),
-		rooms: make(map[string]*RoomInfo),
-		bm:    bm,
-		rng:   rand.New(rand.NewSource(time.Now().UnixNano())),
+		bm:  bm,
+		rng: rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
 
-// ====== 随机匹配 ======
+// ====== 随机匹配（Redis 实现，支持跨服） ======
 
+// JoinQueue 加入匹配队列
 func (m *MatchManager) JoinQueue(p *PlayerInfo) (*MatchResult, bool) {
-	m.queueMu.Lock()
-	defer m.queueMu.Unlock()
+	ctx := context.Background()
+	uidStr := strconv.FormatInt(p.UID, 10)
 
-	//已在队列中
-	for _, v := range m.queue {
-		if v.UID == p.UID {
-			return nil, false
-		}
-	}
-
-	//已在对局中
+	// 检查是否已在对局中
 	if m.bm.IsInBattle(p.UID) {
 		return nil, false
 	}
 
-	//尝试匹配
-	for i, other := range m.queue {
-		if other.UID == p.UID {
-			continue
-		}
-
-		m.queue = append(m.queue[:i], m.queue[i+1:]...)
-		battleID := m.bm.Create(p.UID, other.UID)
-		return &MatchResult{
-			BattleID: battleID,
-			Player1:  p,
-			Player2:  other,
-		}, true
+	// 检查是否已在队列中
+	exists, _ := db.RDB.HExists(ctx, KeyMatchQueue, uidStr).Result()
+	if exists {
+		return nil, false
 	}
 
-	// 没配到，加入队列
-	m.queue = append(m.queue, p)
-	return nil, true
+	// 加入队列
+	playerData, _ := json.Marshal(p)
+	db.RDB.HSet(ctx, KeyMatchQueue, uidStr, string(playerData))
+	db.RDB.RPush(ctx, KeyMatchQueue+":list", uidStr)
+
+	// 尝试取出对手
+	result, err := db.RDB.BLPop(ctx, 100*time.Millisecond, KeyMatchQueue+":list").Result()
+	if err != nil || len(result) < 2 {
+		// 队列空，留在队列等别人来匹配
+		return nil, true
+	}
+
+	opponentUIDStr := result[1]
+	opponentUID, _ := strconv.ParseInt(opponentUIDStr, 10, 64)
+
+	// 取到自己，放回去，留在队列等别人
+	if opponentUID == p.UID {
+		db.RDB.RPush(ctx, KeyMatchQueue+":list", uidStr)
+		return nil, true
+	}
+
+	// 获取对手信息
+	opponentData, _ := db.RDB.HGet(ctx, KeyMatchQueue, opponentUIDStr).Result()
+	if opponentData == "" {
+		// 对手数据丢失，自己留在队列
+		return nil, true
+	}
+	var opponent PlayerInfo
+	json.Unmarshal([]byte(opponentData), &opponent)
+
+	// 清理双方队列记录
+	db.RDB.HDel(ctx, KeyMatchQueue, uidStr, opponentUIDStr)
+
+	// 对手已在对局中，自己重新加入
+	if m.bm.IsInBattle(opponentUID) {
+		playerData, _ := json.Marshal(p)
+		db.RDB.HSet(ctx, KeyMatchQueue, uidStr, string(playerData))
+		db.RDB.RPush(ctx, KeyMatchQueue+":list", uidStr)
+		return nil, true
+	}
+
+	// 匹配成功
+	battleID := m.bm.Create(p.UID, opponentUID)
+	return &MatchResult{
+		BattleID: battleID,
+		Player1:  p,
+		Player2:  &opponent,
+	}, true
 }
 
-// 取消匹配
+// CancelQueue 取消匹配
 func (m *MatchManager) CancelQueue(uid int64) bool {
-	m.queueMu.Lock()
-	defer m.queueMu.Unlock()
+	ctx := context.Background()
+	uidStr := strconv.FormatInt(uid, 10)
 
-	for i, v := range m.queue {
-		if v.UID == uid {
-			m.queue = append(m.queue[:i], m.queue[i+1:]...)
-			return true
-		}
-	}
+	// 从 Hash 和 List 中移除
+	removed, _ := db.RDB.HDel(ctx, KeyMatchQueue, uidStr).Result()
+	db.RDB.LRem(ctx, KeyMatchQueue+":list", 0, uidStr)
 
-	return false
+	return removed > 0
 }
 
-// ====== 房间匹配 ======
+// QueueLen 获取匹配队列长度
+func (m *MatchManager) QueueLen() int {
+	ctx := context.Background()
+	length, _ := db.RDB.HLen(ctx, KeyMatchQueue).Result()
+	return int(length)
+}
+
+// ====== 房间匹配（Redis 实现，支持跨服） ======
 
 func (m *MatchManager) CreateRoom(p *PlayerInfo) string {
-	m.roomMu.Lock()
-	defer m.roomMu.Unlock()
+	ctx := context.Background()
 
 	// 检查是否已有房间
-	for _, room := range m.rooms {
-		if room.Creator.UID == p.UID {
-			return room.Code // 已有房间，返回原房间码
-		}
+	existingCode, _ := db.RDB.HGet(ctx, KeyMatchRoom, fmt.Sprintf("%d", p.UID)).Result()
+	if existingCode != "" {
+		return existingCode
 	}
 
 	code := m.generateRoomCode()
-	m.rooms[code] = &RoomInfo{
-		Code:    code,
-		Creator: p,
-	}
+
+	// 存到 Redis: 房间码 → 创建者信息
+	roomData, _ := json.Marshal(RoomInfo{Code: code, Creator: p})
+	db.RDB.HSet(ctx, KeyMatchRoom+":"+code, "data", string(roomData))
+	db.RDB.HSet(ctx, KeyMatchRoom, fmt.Sprintf("%d", p.UID), code)
 
 	return code
 }
 
-// JoinRoom 通过房间码加入
 func (m *MatchManager) JoinRoom(code string, joiner *PlayerInfo) (*MatchResult, bool) {
-	m.roomMu.Lock()
-	defer m.roomMu.Unlock()
+	ctx := context.Background()
 
-	room, ok := m.rooms[code]
-	if !ok {
+	// 从 Redis 获取房间信息
+	roomData, err := db.RDB.HGet(ctx, KeyMatchRoom+":"+code, "data").Result()
+	if err != nil || roomData == "" {
 		return nil, false
 	}
+
+	var room RoomInfo
+	json.Unmarshal([]byte(roomData), &room)
 
 	// 不能加入自己的房间
 	if room.Creator.UID == joiner.UID {
 		return nil, false
 	}
 
-	// 配对成功，删除房间
-	delete(m.rooms, code)
+	// 删除房间
+	db.RDB.Del(ctx, KeyMatchRoom+":"+code)
+	db.RDB.HDel(ctx, KeyMatchRoom, fmt.Sprintf("%d", room.Creator.UID))
 
 	battleID := m.bm.Create(room.Creator.UID, joiner.UID)
 	return &MatchResult{
@@ -128,7 +162,27 @@ func (m *MatchManager) JoinRoom(code string, joiner *PlayerInfo) (*MatchResult, 
 	}, true
 }
 
-// 生成六位随机房间码（调用方须持有 roomMu）
+func (m *MatchManager) GetRoomByPlayer(uid int64) *RoomInfo {
+	ctx := context.Background()
+	code, _ := db.RDB.HGet(ctx, KeyMatchRoom, fmt.Sprintf("%d", uid)).Result()
+	if code == "" {
+		return nil
+	}
+	roomData, _ := db.RDB.HGet(ctx, KeyMatchRoom+":"+code, "data").Result()
+	if roomData == "" {
+		return nil
+	}
+	var room RoomInfo
+	json.Unmarshal([]byte(roomData), &room)
+	return &room
+}
+
+func (m *MatchManager) RoomCount() int {
+	ctx := context.Background()
+	count, _ := db.RDB.HLen(ctx, KeyMatchRoom).Result()
+	return int(count)
+}
+
 func (m *MatchManager) generateRoomCode() string {
 	digits := "0123456789"
 	code := make([]byte, 6)
@@ -136,30 +190,4 @@ func (m *MatchManager) generateRoomCode() string {
 		code[i] = digits[m.rng.Intn(len(digits))]
 	}
 	return string(code)
-}
-
-// QueueLen 获取匹配队列长度
-func (m *MatchManager) QueueLen() int {
-	m.queueMu.Lock()
-	defer m.queueMu.Unlock()
-	return len(m.queue)
-}
-
-// RoomCount 获取活跃房间数
-func (m *MatchManager) RoomCount() int {
-	m.roomMu.Lock()
-	defer m.roomMu.Unlock()
-	return len(m.rooms)
-}
-
-// GetRoomByPlayer 根据玩家 UID 查找其创建的房间
-func (m *MatchManager) GetRoomByPlayer(uid int64) *RoomInfo {
-	m.roomMu.Lock()
-	defer m.roomMu.Unlock()
-	for _, room := range m.rooms {
-		if room.Creator.UID == uid {
-			return room
-		}
-	}
-	return nil
 }

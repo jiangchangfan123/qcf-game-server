@@ -26,6 +26,9 @@ const (
 	// 格式: room:{roomCode}
 	KeyRoomPrefix = "room:%s"
 
+	// 匹配房间 (Hash: field=uid, value=room_code; Hash: room:code:data=RoomInfo JSON)
+	KeyMatchRoom = "match_room"
+
 	// 玩家 Session 缓存 (Hash: field=uid/nickname/room_id/login_time)
 	// 格式: session:uid:{uid}
 	KeyPlayerSessionPrefix = "session:uid:%d"
