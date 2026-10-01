@@ -18,21 +18,28 @@ type Session struct {
 }
 
 type SessionManager struct {
-	mu       sync.RWMutex
-	sessions map[uint64]*Session
+	mu          sync.RWMutex
+	sessions    map[uint64]*Session // connID → Session
+	uidToConnID map[int64]uint64    // uid → connID（反向索引）
 }
 
 // NewSessionManager 创建一个新的会话管理器
 func NewSessionManager() *SessionManager {
 	return &SessionManager{
-		sessions: make(map[uint64]*Session),
+		sessions:    make(map[uint64]*Session),
+		uidToConnID: make(map[int64]uint64),
 	}
 }
 
 func (m *SessionManager) Add(s *Session) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	// 如果该 UID 之前有旧连接，先清理旧映射
+	if oldConnID, ok := m.uidToConnID[s.UID]; ok {
+		delete(m.sessions, oldConnID)
+	}
 	m.sessions[s.ConnID] = s
+	m.uidToConnID[s.UID] = s.ConnID
 }
 
 // Get 根据连接ID获取会话
@@ -47,6 +54,9 @@ func (m *SessionManager) Get(connID uint64) (*Session, bool) {
 func (m *SessionManager) Remove(connID uint64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if s, ok := m.sessions[connID]; ok {
+		delete(m.uidToConnID, s.UID)
+	}
 	delete(m.sessions, connID)
 }
 
@@ -84,16 +94,16 @@ func (m *SessionManager) RoomOnlineCount(roomID int64) int {
 	return count
 }
 
-// GetByUID 通过 UID 查找 Session
+// GetByUID 通过 UID 查找 Session（O(1) 反向索引）
 func (m *SessionManager) GetByUID(uid int64) (*Session, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	for _, s := range m.sessions {
-		if s.UID == uid {
-			return s, true
-		}
+	connID, ok := m.uidToConnID[uid]
+	if !ok {
+		return nil, false
 	}
-	return nil, false
+	s, ok := m.sessions[connID]
+	return s, ok
 }
 
 // 将会话session存到缓存到redis
