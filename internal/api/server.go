@@ -1,7 +1,6 @@
 package api
 
 import (
-	"GameServer/internal/config"
 	"GameServer/internal/game/handler"
 	"GameServer/internal/game/logic"
 	"GameServer/internal/network"
@@ -19,7 +18,9 @@ import (
 
 var gameServer *network.Server
 
-func Start(srv *network.Server) {
+// NewHandler 构建完整的 HTTP 路由和中间件链，返回给 main.go 管理生命周期。
+// 这样 http.Server 的创建和关闭都由 main.go 控制，避免 goroutine 竞态。
+func NewHandler(srv *network.Server) http.Handler {
 	gameServer = srv
 
 	mux := http.NewServeMux()
@@ -29,7 +30,6 @@ func Start(srv *network.Server) {
 		jsonOK(w, map[string]interface{}{"code": 0, "msg": "ok"})
 	})
 	mux.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
-		// 检查 Redis 和 MySQL 是否可用
 		jsonOK(w, map[string]interface{}{"code": 0, "msg": "ready"})
 	})
 
@@ -39,7 +39,7 @@ func Start(srv *network.Server) {
 	// 公开接口（限流更严格：每秒 5 次，突发 10）
 	publicChain := chain(
 		methodGuard("POST"),
-		bodyLimit(1<<15), // 32KB，登录注册的 body 不会太大
+		bodyLimit(1<<15), // 32KB
 		rateLimit(5, 10),
 	)
 	apiMux.Handle("/api/register", publicChain(http.HandlerFunc(handleRegister)))
@@ -65,7 +65,7 @@ func Start(srv *network.Server) {
 	apiMux.Handle("/api/battles", queryChain(http.HandlerFunc(handleBattles)))
 	apiMux.Handle("/api/stats", queryChain(http.HandlerFunc(handleStats)))
 
-	// surrender 比较特殊：浏览器关闭时用 sendBeacon（GET），token 在 URL 里
+	// surrender：浏览器关闭时 sendBeacon（GET + URL 参数）
 	apiMux.Handle("/api/surrender", chain(
 		methodGuard("GET"),
 		rateLimit(5, 10),
@@ -77,36 +77,11 @@ func Start(srv *network.Server) {
 	mux.HandleFunc("/", handleIndex)
 
 	// 全局中间件：CORS → Recovery → 请求日志
-	// 注意顺序：recovery 最先，确保 panic 也能被日志记录
-	finalHandler := chain(
+	return chain(
 		cors(getAllowedOrigins()),
 		recovery,
 		requestLogger,
 	)(mux)
-
-	addr := config.C.APIPort
-	if addr == "" {
-		addr = ":8082"
-	}
-
-	// 用 http.Server 替代裸 ListenAndServe，支持优雅关闭
-	httpSrv := &http.Server{
-		Addr:              addr,
-		Handler:           finalHandler,
-		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       30 * time.Second,
-		WriteTimeout:      30 * time.Second,
-		IdleTimeout:       120 * time.Second,
-		MaxHeaderBytes:    1 << 16, // 64KB
-	}
-
-	// 保存引用，供 Shutdown 使用
-	srv.HTTPServer = httpSrv
-
-	logger.Log.Infof("REST API 启动于 http://localhost%s", addr)
-	if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		logger.Log.Errorf("REST API 错误: %v", err)
-	}
 }
 
 // getAllowedOrigins 从配置读取允许的 CORS 域名，开发环境默认 "*"

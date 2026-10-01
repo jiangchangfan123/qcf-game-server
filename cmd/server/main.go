@@ -9,9 +9,11 @@ import (
 	"GameServer/internal/network"
 	"GameServer/internal/pkg/logger"
 	"flag"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 func main() {
@@ -58,7 +60,28 @@ func main() {
 	go netServer.Start() // 此方法会阻塞，持续监听
 
 	// 启动 REST API 服务
-	go api.Start(netServer)
+	// 在主协程创建 http.Server 并绑定到 netServer，确保 Shutdown 时一定存在
+	apiHandler := api.NewHandler(netServer)
+	apiAddr := config.C.APIPort
+	if apiAddr == "" {
+		apiAddr = ":8082"
+	}
+	httpSrv := &http.Server{
+		Addr:              apiAddr,
+		Handler:           apiHandler,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 16, // 64KB
+	}
+	netServer.HTTPServer = httpSrv
+	go func() {
+		logger.Log.Infof("REST API 启动于 http://localhost%s", apiAddr)
+		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Log.Errorf("REST API 错误: %v", err)
+		}
+	}()
 
 	// 监听系统信号
 	quit := make(chan os.Signal, 1)
