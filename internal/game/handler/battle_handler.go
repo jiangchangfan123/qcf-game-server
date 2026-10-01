@@ -7,6 +7,7 @@ import (
 	"GameServer/internal/pb"
 	"GameServer/internal/pkg/logger"
 	"GameServer/internal/session"
+	"sync"
 	"time"
 
 	"google.golang.org/protobuf/proto"
@@ -16,8 +17,69 @@ import (
 var (
 	battleManager *logic.BattleManager
 	matchManager  *logic.MatchManager
-	lastBattleEnd map[int64]*pb.BattleEnd // 记录玩家最近一次对局结果（用于断线重连推送）
+	lastBattleEnd *battleResultStore // 记录玩家最近一次对局结果（用于断线重连推送）
 )
+
+// ====== 线程安全的对局结果暂存 ======
+// 用于断线重连时推送未收到的对局结果，自带过期清理
+
+type battleResultEntry struct {
+	result  *pb.BattleEnd
+	expires time.Time
+}
+
+type battleResultStore struct {
+	mu      sync.RWMutex
+	entries map[int64]*battleResultEntry
+	ttl     time.Duration
+}
+
+func newBattleResultStore(ttl time.Duration) *battleResultStore {
+	s := &battleResultStore{
+		entries: make(map[int64]*battleResultEntry),
+		ttl:     ttl,
+	}
+	go s.cleanup()
+	return s
+}
+
+// Set 存入对局结果（对局结束时调用）
+func (s *battleResultStore) Set(uid int64, result *pb.BattleEnd) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.entries[uid] = &battleResultEntry{
+		result:  result,
+		expires: time.Now().Add(s.ttl),
+	}
+}
+
+// GetAndDelete 取出并删除（心跳/重连时调用，只取一次）
+func (s *battleResultStore) GetAndDelete(uid int64) (*pb.BattleEnd, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	entry, ok := s.entries[uid]
+	if !ok {
+		return nil, false
+	}
+	delete(s.entries, uid)
+	return entry.result, true
+}
+
+// cleanup 定期清理过期条目，防止内存泄漏
+func (s *battleResultStore) cleanup() {
+	ticker := time.NewTicker(3 * time.Minute)
+	defer ticker.Stop()
+	for range ticker.C {
+		s.mu.Lock()
+		now := time.Now()
+		for uid, entry := range s.entries {
+			if now.After(entry.expires) {
+				delete(s.entries, uid)
+			}
+		}
+		s.mu.Unlock()
+	}
+}
 
 // MsgID 常量
 const (
@@ -69,7 +131,7 @@ func RegisterBattleHandlers(router *network.Router, srv *network.Server) {
 func InitBattleSystem() {
 	battleManager = logic.NewBattleManager()
 	matchManager = logic.NewMatchManager(battleManager)
-	lastBattleEnd = make(map[int64]*pb.BattleEnd)
+	lastBattleEnd = newBattleResultStore(10 * time.Minute)
 	timer.Init(&BattleTimeoutHandler{})
 }
 
@@ -96,12 +158,9 @@ func SurrenderByUID(uid int64, battleID int64) {
 	}
 
 	// 记录对局结果（用于重连推送）
-	lastBattleEnd[battle.Hand1.UID] = &pb.BattleEnd{
-		BattleId: battleID, Winner: winner, Score1: s1, Score2: s2,
-	}
-	lastBattleEnd[battle.Hand2.UID] = &pb.BattleEnd{
-		BattleId: battleID, Winner: winner, Score1: s1, Score2: s2,
-	}
+	end := &pb.BattleEnd{BattleId: battleID, Winner: winner, Score1: s1, Score2: s2}
+	lastBattleEnd.Set(battle.Hand1.UID, end)
+	lastBattleEnd.Set(battle.Hand2.UID, end)
 
 	battleManager.Remove(battleID)
 	timer.StopBattleTimerGlobal(battleID)
@@ -436,8 +495,8 @@ func notifyBattleEnd(srv *network.Server, battle *logic.Battle, battleID int64, 
 	}
 
 	// 记录对局结果（用于断线重连推送）
-	lastBattleEnd[battle.Hand1.UID] = end
-	lastBattleEnd[battle.Hand2.UID] = end
+	lastBattleEnd.Set(battle.Hand1.UID, end)
+	lastBattleEnd.Set(battle.Hand2.UID, end)
 
 	if p1Conn != nil {
 		p1Conn.WriteProtoPacket(MsgIDBattleEnd, end)
@@ -516,9 +575,8 @@ func restoreBattleState(srv *network.Server, sm *session.SessionManager, uid int
 	}
 
 	// 检查是否有未推送的对局结果（断线重连时）
-	if end, ok := lastBattleEnd[uid]; ok {
+	if end, ok := lastBattleEnd.GetAndDelete(uid); ok {
 		conn.WriteProtoPacket(MsgIDBattleEnd, end)
-		delete(lastBattleEnd, uid)
 		return
 	}
 

@@ -65,9 +65,8 @@ func HandleHeartbeat(sm *session.SessionManager, srv *network.Server) network.Ha
 		s := conn.GetSession()
 		if s != nil {
 			sess := s.(*session.Session)
-			if end, ok := lastBattleEnd[sess.UID]; ok {
+			if end, ok := lastBattleEnd.GetAndDelete(sess.UID); ok {
 				conn.WriteProtoPacket(MsgIDBattleEnd, end)
-				delete(lastBattleEnd, sess.UID)
 				return
 			}
 		}
