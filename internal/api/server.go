@@ -71,6 +71,22 @@ func NewHandler(srv *network.Server) http.Handler {
 		rateLimit(5, 10),
 	)(http.HandlerFunc(handleSurrenderAPI)))
 
+	// DLQ 管理（运维用，限流宽松）
+	apiMux.Handle("/api/dlq", queryChain(http.HandlerFunc(handleDLQList)))
+	apiMux.Handle("/api/dlq/stats", queryChain(http.HandlerFunc(handleDLQStats)))
+	apiMux.Handle("/api/dlq/retry", chain(
+		methodGuard("POST"),
+		rateLimit(2, 5),
+	)(http.HandlerFunc(handleDLQRetry)))
+	apiMux.Handle("/api/dlq/retry-all", chain(
+		methodGuard("POST"),
+		rateLimit(1, 3),
+	)(http.HandlerFunc(handleDLQRetryAll)))
+	apiMux.Handle("/api/dlq/purge", chain(
+		methodGuard("POST"),
+		rateLimit(1, 2),
+	)(http.HandlerFunc(handleDLQPurge)))
+
 	mux.Handle("/api/", apiMux)
 
 	// 静态文件（前端页面）
@@ -495,4 +511,105 @@ func extractBearerToken(r *http.Request) string {
 		return auth[7:]
 	}
 	return ""
+}
+
+// ====== DLQ 管理接口 ======
+
+// GET /api/dlq?count=20 查看 DLQ 中的消息
+func handleDLQList(w http.ResponseWriter, r *http.Request) {
+	count := 20
+	if c := r.URL.Query().Get("count"); c != "" {
+		if n, err := strconv.Atoi(c); err == nil && n > 0 && n <= 100 {
+			count = n
+		}
+	}
+
+	messages, total, err := handler.GetDLQMessages(count)
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, 500, "查询 DLQ 失败: "+err.Error())
+		return
+	}
+
+	// 脱敏处理：body 只显示前 200 字符
+	type dlqItem struct {
+		Body        string `json:"body"`
+		MessageID   string `json:"message_id"`
+		Timestamp   string `json:"timestamp"`
+		DeathReason string `json:"death_reason"`
+	}
+
+	items := make([]dlqItem, 0, len(messages))
+	for _, m := range messages {
+		body := string(m.Body)
+		if len(body) > 200 {
+			body = body[:200] + "..."
+		}
+		items = append(items, dlqItem{
+			Body:        body,
+			MessageID:   m.MessageID,
+			Timestamp:   m.Timestamp.Format(time.RFC3339),
+			DeathReason: m.DeathReason,
+		})
+	}
+
+	jsonOK(w, map[string]interface{}{
+		"code": 0,
+		"data": map[string]interface{}{
+			"total":    total,
+			"messages": items,
+		},
+	})
+}
+
+// GET /api/dlq/stats DLQ 统计
+func handleDLQStats(w http.ResponseWriter, r *http.Request) {
+	stats, err := handler.GetDLQStats()
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, 500, "查询失败")
+		return
+	}
+	jsonOK(w, map[string]interface{}{"code": 0, "data": stats})
+}
+
+// POST /api/dlq/retry 重试 DLQ 中的一条消息
+func handleDLQRetry(w http.ResponseWriter, r *http.Request) {
+	event, err := handler.RetryDLQMessage()
+	if err != nil {
+		jsonError(w, http.StatusBadRequest, 1, err.Error())
+		return
+	}
+	jsonOK(w, map[string]interface{}{
+		"code": 0,
+		"msg":  "已重新投递",
+		"data": map[string]interface{}{"battle_id": event.BattleID},
+	})
+}
+
+// POST /api/dlq/retry-all 重试 DLQ 中的所有消息
+func handleDLQRetryAll(w http.ResponseWriter, r *http.Request) {
+	retried, err := handler.RetryAllDLQMessages()
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, 500, "批量重试失败: "+err.Error())
+		return
+	}
+	jsonOK(w, map[string]interface{}{
+		"code": 0,
+		"msg":  "批量重试完成",
+		"data": map[string]interface{}{"retried": retried},
+	})
+}
+
+// POST /api/dlq/purge 清空 DLQ（慎用）
+func handleDLQPurge(w http.ResponseWriter, r *http.Request) {
+	count, err := handler.PurgeDLQ()
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, 500, "清空失败")
+		return
+	}
+	logger.Log.Warnf("DLQ 已通过 API 清空，丢弃 %d 条消息", count)
+	jsonOK(w, map[string]interface{}{
+		"code": 0,
+		"msg":  "DLQ 已清空",
+		"data": map[string]interface{}{"purged": count},
+	})
 }
