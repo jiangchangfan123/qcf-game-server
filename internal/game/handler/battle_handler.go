@@ -12,10 +12,11 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// 对战相关的全局变量（后续可以放到 Server 结构体里）
+// 对战相关的全局变量
 var (
 	battleManager *logic.BattleManager
 	matchManager  *logic.MatchManager
+	lastBattleEnd map[int64]*pb.BattleEnd // 记录玩家最近一次对局结果（用于断线重连推送）
 )
 
 // MsgID 常量
@@ -68,7 +69,8 @@ func RegisterBattleHandlers(router *network.Router, srv *network.Server) {
 func InitBattleSystem() {
 	battleManager = logic.NewBattleManager()
 	matchManager = logic.NewMatchManager(battleManager)
-	timer.Init(&BattleTimeoutHandler{}) // 初始化计时器，传入回调实现
+	lastBattleEnd = make(map[int64]*pb.BattleEnd)
+	timer.Init(&BattleTimeoutHandler{})
 }
 
 // GetBattleManager 获取对局管理器（供 API 层使用）
@@ -79,6 +81,32 @@ func GetBattleManager() *logic.BattleManager {
 // GetMatchManager 获取匹配管理器（供 API 层使用）
 func GetMatchManager() *logic.MatchManager {
 	return matchManager
+}
+
+// SurrenderByUID 处理投降（供 REST API 调用）
+func SurrenderByUID(uid int64, battleID int64) {
+	battle := battleManager.Get(battleID)
+	if battle == nil {
+		return
+	}
+
+	winner, s1, s2 := battle.Surrender(uid)
+	if winner == 0 {
+		return
+	}
+
+	// 记录对局结果（用于重连推送）
+	lastBattleEnd[battle.Hand1.UID] = &pb.BattleEnd{
+		BattleId: battleID, Winner: winner, Score1: s1, Score2: s2,
+	}
+	lastBattleEnd[battle.Hand2.UID] = &pb.BattleEnd{
+		BattleId: battleID, Winner: winner, Score1: s1, Score2: s2,
+	}
+
+	battleManager.Remove(battleID)
+	timer.StopBattleTimerGlobal(battleID)
+
+	logger.Log.Infof("玩家 %d 投降，对局 %d 结束，赢家 %d", uid, battleID, winner)
 }
 
 func HandleMatch(srv *network.Server) network.HandlerFunc {
@@ -407,11 +435,21 @@ func notifyBattleEnd(srv *network.Server, battle *logic.Battle, battleID int64, 
 		Score2:   s2,
 	}
 
+	// 记录对局结果（用于断线重连推送）
+	lastBattleEnd[battle.Hand1.UID] = end
+	lastBattleEnd[battle.Hand2.UID] = end
+
 	if p1Conn != nil {
 		p1Conn.WriteProtoPacket(MsgIDBattleEnd, end)
+		logger.Log.Infof("BattleEnd 已发送给玩家 %d", battle.Hand1.UID)
+	} else {
+		logger.Log.Warnf("BattleEnd 发送失败：玩家 %d 连接不存在", battle.Hand1.UID)
 	}
 	if p2Conn != nil {
 		p2Conn.WriteProtoPacket(MsgIDBattleEnd, end)
+		logger.Log.Infof("BattleEnd 已发送给玩家 %d", battle.Hand2.UID)
+	} else {
+		logger.Log.Warnf("BattleEnd 发送失败：玩家 %d 连接不存在", battle.Hand2.UID)
 	}
 
 	// 发布对局结束事件到队列（异步处理保存记录+更新排行榜）
@@ -474,6 +512,13 @@ func restoreBattleState(srv *network.Server, sm *session.SessionManager, uid int
 			Hand:     int32Hand,
 			MyTurn:   isMyTurn,
 		})
+		return
+	}
+
+	// 检查是否有未推送的对局结果（断线重连时）
+	if end, ok := lastBattleEnd[uid]; ok {
+		conn.WriteProtoPacket(MsgIDBattleEnd, end)
+		delete(lastBattleEnd, uid)
 		return
 	}
 

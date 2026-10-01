@@ -23,54 +23,117 @@ func Start(srv *network.Server) {
 	gameServer = srv
 
 	mux := http.NewServeMux()
+
+	// ====== 健康检查（不走中间件，K8s/Docker 探针用） ======
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		jsonOK(w, map[string]interface{}{"code": 0, "msg": "ok"})
+	})
+	mux.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
+		// 检查 Redis 和 MySQL 是否可用
+		jsonOK(w, map[string]interface{}{"code": 0, "msg": "ready"})
+	})
+
+	// ====== API 路由（带中间件保护） ======
 	apiMux := http.NewServeMux()
 
-	// API 路由
-	apiMux.HandleFunc("/api/leaderboard", handleLeaderboard)
-	apiMux.HandleFunc("/api/records", handleRecords)
-	apiMux.HandleFunc("/api/online", handleOnline)
-	apiMux.HandleFunc("/api/battles", handleBattles)
-	apiMux.HandleFunc("/api/stats", handleStats)
-	apiMux.HandleFunc("/api/register", handleRegister)
-	apiMux.HandleFunc("/api/login", handleLogin)
-	apiMux.HandleFunc("/api/logout", handleLogout)
-	apiMux.HandleFunc("/api/profile", handleProfile)
+	// 公开接口（限流更严格：每秒 5 次，突发 10）
+	publicChain := chain(
+		methodGuard("POST"),
+		bodyLimit(1<<15), // 32KB，登录注册的 body 不会太大
+		rateLimit(5, 10),
+	)
+	apiMux.Handle("/api/register", publicChain(http.HandlerFunc(handleRegister)))
+	apiMux.Handle("/api/login", publicChain(http.HandlerFunc(handleLogin)))
 
-	// 静态文件 + API
+	// 需要认证的写接口
+	authWriteChain := chain(
+		methodGuard("POST"),
+		bodyLimit(1<<16), // 64KB
+		rateLimit(10, 30),
+	)
+	apiMux.Handle("/api/logout", authWriteChain(http.HandlerFunc(handleLogout)))
+	apiMux.Handle("/api/profile", authWriteChain(http.HandlerFunc(handleProfile)))
+
+	// 查询接口（GET，限流宽松一些）
+	queryChain := chain(
+		methodGuard("GET"),
+		rateLimit(20, 50),
+	)
+	apiMux.Handle("/api/leaderboard", queryChain(http.HandlerFunc(handleLeaderboard)))
+	apiMux.Handle("/api/records", queryChain(http.HandlerFunc(handleRecords)))
+	apiMux.Handle("/api/online", queryChain(http.HandlerFunc(handleOnline)))
+	apiMux.Handle("/api/battles", queryChain(http.HandlerFunc(handleBattles)))
+	apiMux.Handle("/api/stats", queryChain(http.HandlerFunc(handleStats)))
+
+	// surrender 比较特殊：浏览器关闭时用 sendBeacon（GET），token 在 URL 里
+	apiMux.Handle("/api/surrender", chain(
+		methodGuard("GET"),
+		rateLimit(5, 10),
+	)(http.HandlerFunc(handleSurrenderAPI)))
+
 	mux.Handle("/api/", apiMux)
+
+	// 静态文件（前端页面）
 	mux.HandleFunc("/", handleIndex)
 
-	handler := corsMiddleware(mux)
+	// 全局中间件：CORS → Recovery → 请求日志
+	// 注意顺序：recovery 最先，确保 panic 也能被日志记录
+	finalHandler := chain(
+		cors(getAllowedOrigins()),
+		recovery,
+		requestLogger,
+	)(mux)
 
 	addr := config.C.APIPort
 	if addr == "" {
 		addr = ":8082"
 	}
 
+	// 用 http.Server 替代裸 ListenAndServe，支持优雅关闭
+	httpSrv := &http.Server{
+		Addr:              addr,
+		Handler:           finalHandler,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 16, // 64KB
+	}
+
+	// 保存引用，供 Shutdown 使用
+	srv.HTTPServer = httpSrv
+
 	logger.Log.Infof("REST API 启动于 http://localhost%s", addr)
-	if err := http.ListenAndServe(addr, handler); err != nil {
+	if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		logger.Log.Errorf("REST API 错误: %v", err)
 	}
 }
 
-func corsMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-		if r.Method == "OPTIONS" {
-			return
+// getAllowedOrigins 从配置读取允许的 CORS 域名，开发环境默认 "*"
+func getAllowedOrigins() []string {
+	// TODO: 后续可以从 config.yaml 读取
+	return []string{"*"}
+}
+
+// chain 从左到右组合多个中间件，最左边的最先执行
+func chain(middlewares ...func(http.Handler) http.Handler) func(http.Handler) http.Handler {
+	return func(final http.Handler) http.Handler {
+		// 从右往左包裹，这样最左边的中间件最先拦截请求
+		for i := len(middlewares) - 1; i >= 0; i-- {
+			final = middlewares[i](final)
 		}
-		next.ServeHTTP(w, r)
-	})
+		return final
+	}
 }
 
-func jsonResponse(w http.ResponseWriter, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(data)
+// ====== 带超时的 JSON Body 解析 ======
+
+func decodeJSON(r *http.Request, v interface{}) error {
+	r.Body = http.MaxBytesReader(nil, r.Body, 1<<16) // 64KB 兜底
+	return json.NewDecoder(r.Body).Decode(v)
 }
 
-// ========== API Handlers ==========
+// ====== API Handlers ======
 
 func handleLeaderboard(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -78,14 +141,14 @@ func handleLeaderboard(w http.ResponseWriter, r *http.Request) {
 
 	top := 10
 	if t := r.URL.Query().Get("top"); t != "" {
-		if n, err := strconv.Atoi(t); err == nil && n > 0 {
+		if n, err := strconv.Atoi(t); err == nil && n > 0 && n <= 100 {
 			top = n
 		}
 	}
 
 	entries, err := logic.GetLeaderboardFromRedis(ctx, top)
 	if err != nil {
-		jsonResponse(w, map[string]interface{}{"code": 1, "msg": "查询失败"})
+		jsonError(w, http.StatusInternalServerError, 500, "查询失败")
 		return
 	}
 
@@ -106,7 +169,7 @@ func handleLeaderboard(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	jsonResponse(w, map[string]interface{}{"code": 0, "data": items})
+	jsonOK(w, map[string]interface{}{"code": 0, "data": items})
 }
 
 func handleRecords(w http.ResponseWriter, r *http.Request) {
@@ -116,20 +179,20 @@ func handleRecords(w http.ResponseWriter, r *http.Request) {
 	uidStr := r.URL.Query().Get("uid")
 	uid, err := strconv.ParseInt(uidStr, 10, 64)
 	if err != nil || uid <= 0 {
-		jsonResponse(w, map[string]interface{}{"code": 1, "msg": "参数错误"})
+		jsonError(w, http.StatusBadRequest, 1, "参数错误")
 		return
 	}
 
 	limit := 10
 	if l := r.URL.Query().Get("limit"); l != "" {
-		if n, err := strconv.Atoi(l); err == nil && n > 0 {
+		if n, err := strconv.Atoi(l); err == nil && n > 0 && n <= 50 {
 			limit = n
 		}
 	}
 
 	records, err := models.GetPlayerRecords(ctx, uid, limit)
 	if err != nil {
-		jsonResponse(w, map[string]interface{}{"code": 1, "msg": "查询失败"})
+		jsonError(w, http.StatusInternalServerError, 500, "查询失败")
 		return
 	}
 
@@ -153,7 +216,7 @@ func handleRecords(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	jsonResponse(w, map[string]interface{}{"code": 0, "data": items})
+	jsonOK(w, map[string]interface{}{"code": 0, "data": items})
 }
 
 func handleOnline(w http.ResponseWriter, r *http.Request) {
@@ -163,7 +226,7 @@ func handleOnline(w http.ResponseWriter, r *http.Request) {
 		online = gameServer.SessionManager.OnlineCount()
 		conns = gameServer.ConnCount()
 	}
-	jsonResponse(w, map[string]interface{}{
+	jsonOK(w, map[string]interface{}{
 		"code": 0,
 		"data": map[string]int{"online": online, "connections": conns},
 	})
@@ -172,7 +235,7 @@ func handleOnline(w http.ResponseWriter, r *http.Request) {
 func handleBattles(w http.ResponseWriter, r *http.Request) {
 	bm := handler.GetBattleManager()
 	if bm == nil {
-		jsonResponse(w, map[string]interface{}{"code": 0, "data": []interface{}{}})
+		jsonOK(w, map[string]interface{}{"code": 0, "data": []interface{}{}})
 		return
 	}
 
@@ -200,7 +263,7 @@ func handleBattles(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	jsonResponse(w, map[string]interface{}{"code": 0, "data": items})
+	jsonOK(w, map[string]interface{}{"code": 0, "data": items})
 }
 
 func handleStats(w http.ResponseWriter, r *http.Request) {
@@ -226,7 +289,7 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 		rooms = mm.RoomCount()
 	}
 
-	jsonResponse(w, map[string]interface{}{
+	jsonOK(w, map[string]interface{}{
 		"code": 0,
 		"data": map[string]int{
 			"online":      online,
@@ -243,31 +306,28 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 	if path == "/" {
 		path = "/index.html"
 	}
-
-	// 尝试从 web 目录提供静态文件
 	filePath := "web" + path
 	http.ServeFile(w, r, filePath)
 }
 
-// ========== 登录注册 API ==========
+// ========== 登录注册 ==========
 
 func handleRegister(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		jsonResponse(w, map[string]interface{}{"code": 1, "msg": "POST only"})
-		return
-	}
-
 	var req struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		jsonResponse(w, map[string]interface{}{"code": 1, "msg": "请求格式错误"})
+	if err := decodeJSON(r, &req); err != nil {
+		jsonError(w, http.StatusBadRequest, 1, "请求格式错误")
 		return
 	}
 
 	if req.Username == "" || req.Password == "" {
-		jsonResponse(w, map[string]interface{}{"code": 2, "msg": "用户名或密码不能为空"})
+		jsonError(w, http.StatusBadRequest, 2, "用户名或密码不能为空")
+		return
+	}
+	if len(req.Username) > 32 || len(req.Password) > 64 {
+		jsonError(w, http.StatusBadRequest, 2, "用户名或密码过长")
 		return
 	}
 
@@ -276,17 +336,17 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 
 	exists, err := models.ExistByUsername(ctx, req.Username)
 	if err != nil {
-		jsonResponse(w, map[string]interface{}{"code": 500, "msg": "服务器错误"})
+		jsonError(w, http.StatusInternalServerError, 500, "服务器错误")
 		return
 	}
 	if exists {
-		jsonResponse(w, map[string]interface{}{"code": 1, "msg": "用户名已存在"})
+		jsonError(w, http.StatusConflict, 1, "用户名已存在")
 		return
 	}
 
 	hashedPwd, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		jsonResponse(w, map[string]interface{}{"code": 500, "msg": "注册失败"})
+		jsonError(w, http.StatusInternalServerError, 500, "注册失败")
 		return
 	}
 
@@ -296,26 +356,21 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 		Nickname: req.Username,
 	}
 	if err := user.CreateUser(ctx); err != nil {
-		jsonResponse(w, map[string]interface{}{"code": 500, "msg": "注册失败"})
+		jsonError(w, http.StatusInternalServerError, 500, "注册失败")
 		return
 	}
 
 	logger.Log.Infof("新用户注册: %s (ID: %d)", req.Username, user.ID)
-	jsonResponse(w, map[string]interface{}{"code": 0, "msg": "注册成功"})
+	jsonOK(w, map[string]interface{}{"code": 0, "msg": "注册成功"})
 }
 
 func handleLogin(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		jsonResponse(w, map[string]interface{}{"code": 1, "msg": "POST only"})
-		return
-	}
-
 	var req struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		jsonResponse(w, map[string]interface{}{"code": 1, "msg": "请求格式错误"})
+	if err := decodeJSON(r, &req); err != nil {
+		jsonError(w, http.StatusBadRequest, 1, "请求格式错误")
 		return
 	}
 
@@ -324,27 +379,27 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	user, err := models.FindByUsername(ctx, req.Username)
 	if err != nil {
-		jsonResponse(w, map[string]interface{}{"code": 500, "msg": "服务器错误"})
+		jsonError(w, http.StatusInternalServerError, 500, "服务器错误")
 		return
 	}
 	if user == nil {
-		jsonResponse(w, map[string]interface{}{"code": 1, "msg": "用户不存在"})
+		jsonError(w, http.StatusUnauthorized, 1, "用户名或密码错误")
 		return
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		jsonResponse(w, map[string]interface{}{"code": 2, "msg": "密码错误"})
+		jsonError(w, http.StatusUnauthorized, 2, "用户名或密码错误")
 		return
 	}
 
 	token, err := jwt.GenerateToken(user.ID, user.Username, user.Nickname)
 	if err != nil {
-		jsonResponse(w, map[string]interface{}{"code": 500, "msg": "服务器错误"})
+		jsonError(w, http.StatusInternalServerError, 500, "服务器错误")
 		return
 	}
 
 	logger.Log.Infof("用户登录: %s (ID: %d)", req.Username, user.ID)
-	jsonResponse(w, map[string]interface{}{
+	jsonOK(w, map[string]interface{}{
 		"code":     0,
 		"msg":      "登录成功",
 		"uid":      user.ID,
@@ -354,35 +409,21 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleLogout(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		jsonResponse(w, map[string]interface{}{"code": 1, "msg": "POST only"})
-		return
-	}
-
-	//从header获取token
-	token := r.Header.Get("Authorization")
+	token := extractBearerToken(r)
 	if token == "" {
-		jsonResponse(w, map[string]interface{}{"code": 1, "msg": "未登录"})
+		jsonError(w, http.StatusUnauthorized, 1, "未登录")
 		return
-	}
-
-	// 去掉 "Bearer " 前缀
-	if len(token) > 7 && token[:7] == "Bearer " {
-		token = token[7:]
 	}
 
 	claims, err := jwt.ValidateToken(token)
 	if err != nil {
-		jsonResponse(w, map[string]interface{}{"code": 1, "msg": "token无效"})
+		jsonError(w, http.StatusUnauthorized, 1, "token无效")
 		return
 	}
 
-	// 从匹配队列移除
 	if gameServer != nil && gameServer.MatchManager != nil {
 		gameServer.MatchManager.CancelQueue(claims.UserID)
 	}
-
-	// 关闭连接（会自动清理 session）
 	if gameServer != nil {
 		if conn := gameServer.GetConnByUID(claims.UserID); conn != nil {
 			conn.Close()
@@ -390,35 +431,36 @@ func handleLogout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Log.Infof("用户登出: %s (ID: %d)", claims.Username, claims.UserID)
-	jsonResponse(w, map[string]interface{}{"code": 0, "msg": "登出成功"})
+	jsonOK(w, map[string]interface{}{"code": 0, "msg": "登出成功"})
 }
 
 func handleProfile(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		jsonResponse(w, map[string]interface{}{"code": 1, "msg": "POST only"})
+	token := extractBearerToken(r)
+	if token == "" {
+		jsonError(w, http.StatusUnauthorized, 1, "未登录")
 		return
 	}
 
-	token := r.Header.Get("Authorization")
-	if len(token) > 7 && token[:7] == "Bearer " {
-		token = token[7:]
-	}
 	claims, err := jwt.ValidateToken(token)
 	if err != nil {
-		jsonResponse(w, map[string]interface{}{"code": 1, "msg": "未登录"})
+		jsonError(w, http.StatusUnauthorized, 1, "token无效")
 		return
 	}
 
 	var req struct {
 		Nickname string `json:"nickname"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		jsonResponse(w, map[string]interface{}{"code": 1, "msg": "请求格式错误"})
+	if err := decodeJSON(r, &req); err != nil {
+		jsonError(w, http.StatusBadRequest, 1, "请求格式错误")
 		return
 	}
 
 	if req.Nickname == "" {
-		jsonResponse(w, map[string]interface{}{"code": 2, "msg": "昵称不能为空"})
+		jsonError(w, http.StatusBadRequest, 2, "昵称不能为空")
+		return
+	}
+	if len(req.Nickname) > 32 {
+		jsonError(w, http.StatusBadRequest, 2, "昵称过长")
 		return
 	}
 
@@ -427,17 +469,55 @@ func handleProfile(w http.ResponseWriter, r *http.Request) {
 
 	user, err := models.FindByID(ctx, claims.UserID)
 	if err != nil || user == nil {
-		jsonResponse(w, map[string]interface{}{"code": 1, "msg": "用户不存在"})
+		jsonError(w, http.StatusNotFound, 1, "用户不存在")
 		return
 	}
 
 	if err := user.UpdateNickname(ctx, req.Nickname); err != nil {
-		jsonResponse(w, map[string]interface{}{"code": 500, "msg": "修改失败"})
+		jsonError(w, http.StatusInternalServerError, 500, "修改失败")
 		return
 	}
 
 	logic.SaveNickname(ctx, claims.UserID, req.Nickname)
 
 	logger.Log.Infof("用户 %s 修改昵称为: %s", claims.Username, req.Nickname)
-	jsonResponse(w, map[string]interface{}{"code": 0, "msg": "修改成功", "nickname": req.Nickname})
+	jsonOK(w, map[string]interface{}{"code": 0, "msg": "修改成功", "nickname": req.Nickname})
+}
+
+// handleSurrenderAPI 浏览器关闭时 sendBeacon 调用（GET + URL 参数）
+func handleSurrenderAPI(w http.ResponseWriter, r *http.Request) {
+	token := r.URL.Query().Get("token")
+	battleIDStr := r.URL.Query().Get("battle_id")
+
+	if token == "" || battleIDStr == "" {
+		jsonError(w, http.StatusBadRequest, 1, "参数缺失")
+		return
+	}
+
+	claims, err := jwt.ValidateToken(token)
+	if err != nil {
+		jsonError(w, http.StatusUnauthorized, 1, "token无效")
+		return
+	}
+
+	battleID, err := strconv.ParseInt(battleIDStr, 10, 64)
+	if err != nil {
+		jsonError(w, http.StatusBadRequest, 1, "battle_id格式错误")
+		return
+	}
+
+	handler.SurrenderByUID(claims.UserID, battleID)
+
+	logger.Log.Infof("玩家 %d 通过API投降，对局 %d", claims.UserID, battleID)
+	jsonOK(w, map[string]interface{}{"code": 0, "msg": "ok"})
+}
+
+// ====== 工具函数 ======
+
+func extractBearerToken(r *http.Request) string {
+	auth := r.Header.Get("Authorization")
+	if len(auth) > 7 && auth[:7] == "Bearer " {
+		return auth[7:]
+	}
+	return ""
 }

@@ -25,6 +25,7 @@ type Server struct {
 	SessionManager *session.SessionManager
 	MatchManager   interface{ CancelQueue(uid int64) bool }
 	OnDisconnect   func(uid int64) // 断线回调（由 handler 层设置）
+	HTTPServer     *http.Server   // REST API 服务，优雅关闭用
 	connMap        map[uint64]Conn
 	connMu         sync.RWMutex
 	activeConns    int64
@@ -57,6 +58,17 @@ func (s *Server) Shutdown() {
 	time.Sleep(500 * time.Millisecond)
 
 	s.cancel()
+
+	// 优雅关闭 HTTP 服务（停止接受新请求，等待已有请求完成）
+	if s.HTTPServer != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := s.HTTPServer.Shutdown(ctx); err != nil {
+			logger.Log.Warnf("HTTP 服务关闭超时: %v", err)
+		} else {
+			logger.Log.Info("HTTP 服务已关闭")
+		}
+	}
 
 	if s.Listener != nil {
 		s.Listener.Close()
@@ -136,20 +148,21 @@ func (s *Server) handleConnection(conn Conn) {
 	go s.heartbeatChecker(conn)
 
 	defer func() {
-		s.connMu.Lock()
-		delete(s.connMap, conn.ID())
-		s.connMu.Unlock()
-
+		// 断线时自动投降（在删除连接之前，确保消息能发出去）
 		if conn.GetSession() != nil {
 			sess := conn.GetSession().(*session.Session)
 			if s.MatchManager != nil {
 				s.MatchManager.CancelQueue(sess.UID)
 			}
-			// 断线时自动投降
 			if s.OnDisconnect != nil {
 				s.OnDisconnect(sess.UID)
 			}
 		}
+
+		// 从连接表中移除
+		s.connMu.Lock()
+		delete(s.connMap, conn.ID())
+		s.connMu.Unlock()
 
 		s.SessionManager.Remove(conn.ID())
 		logger.Log.Infof("Connection closed: %s, online: %d",

@@ -35,7 +35,7 @@ func RegisterHandlers(router *network.Router, sm *session.SessionManager, srv *n
 	router.AddMiddleware(network.NewAuthMiddleware(sm))
 
 	// 不需要认证的消息
-	router.RegisterRaw(MsgIDHeartbeat, HandleHeartbeat(sm))
+	router.RegisterRaw(MsgIDHeartbeat, HandleHeartbeat(sm, srv))
 	router.RegisterRaw(MsgIDLogin, HandleLogin(sm))
 	router.RegisterRaw(MsgIDRegister, HandleRegister())
 	router.RegisterRaw(MsgIDAuth, HandleAuth(sm, srv))
@@ -56,10 +56,22 @@ func RegisterHandlers(router *network.Router, sm *session.SessionManager, srv *n
 }
 
 // HandleHeartbeat 处理心跳包 —— 客户端定期发来证明还活着
-func HandleHeartbeat(sm *session.SessionManager) network.HandlerFunc {
+func HandleHeartbeat(sm *session.SessionManager, srv *network.Server) network.HandlerFunc {
 	return func(conn network.Conn, pkt *network.Packet) {
 		logger.Log.Infof("收到心跳 from %s", conn.RemoteAddr().String())
-		conn.UpdateHeartbeat() //更新最后心跳时间
+		conn.UpdateHeartbeat()
+
+		// 心跳时检查是否有未推送的对局结果
+		s := conn.GetSession()
+		if s != nil {
+			sess := s.(*session.Session)
+			if end, ok := lastBattleEnd[sess.UID]; ok {
+				conn.WriteProtoPacket(MsgIDBattleEnd, end)
+				delete(lastBattleEnd, sess.UID)
+				return
+			}
+		}
+
 		conn.WriteProtoPacket(MsgIDHeartbeat, &pb.Heartbeat{})
 	}
 }

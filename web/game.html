@@ -1006,8 +1006,8 @@ document.addEventListener('click', (e) => {
 
 // ========== 大厅 ==========
 function goLobby() {
-    // 如果在对局中，先投降
-    if (state.battleId) {
+    // 如果在对局中且对局未结束，触发投降
+    if (state.battleId && !document.getElementById('gameOverOverlay').classList.contains('show')) {
         if (!confirm('退出将判定为投降，确定退出？')) return;
         WS.send(MsgID.Surrender, 'pb.SurrenderRequest', {battle_id: state.battleId});
     }
@@ -1420,6 +1420,13 @@ async function main() {
     protoPromise = Proto.init().then(() => { protoReady = true; }).catch(e => { console.error('[Proto]', e); });
     if (state.token) connectAndEnter();
     setInterval(() => { if (WS.isConnected()) WS.send(MsgID.Heartbeat, 'pb.Heartbeat', {}); }, 10000);
+
+    // 关闭标签页时自动投降（用 sendBeacon，不依赖 WebSocket）
+    window.addEventListener('beforeunload', () => {
+        if (state.battleId && state.token) {
+            navigator.sendBeacon('/api/surrender?token=' + encodeURIComponent(state.token) + '&battle_id=' + state.battleId);
+        }
+    });
 }
 main();
 </script>
